@@ -270,14 +270,32 @@ type NicknameMap = Record<string /* userId */, NicknameEntry>;
 
 ## 8. 変更の即時反映
 
-保存・解除の直後に、対象ユーザーの `USER_UPDATE` を Flux に流して再描画を促す。
+保存・解除の直後に、読み取りを横取りしている各 Flux ストアの `emitChange()` を
+呼んで再描画を促す。
 
 ```ts
-FluxDispatcher.dispatch({ type: "USER_UPDATE", user: UserStore.getUser(userId) });
+UserStore.emitChange();
+GuildMemberStore.emitChange();
+RelationshipStore.emitChange();
 ```
 
-`UserStore` から取り出した実物のユーザーオブジェクトをそのまま流すだけのローカル完結の
-ディスパッチであり、サーバーへの送信は発生しない。
+以前は `FluxDispatcher.dispatch({ type: "USER_UPDATE", user })` という合成アクションを
+流していたが、これは `UserStore` を揺らすだけで、メンバーリストやメッセージヘッダが
+実際に購読している `GuildMemberStore` には何も伝わらなかった。`getNick` / `getMember` を
+横取りしているのはまさにその `GuildMemberStore` であり、そこへ変化が伝わらない限り
+これらの画面は再読み込みするまで古い名前を表示し続けてしまう（これが実際に報告された
+不具合の原因）。加えて、`FluxDispatcher.dispatch` は Discord 自身のレデューサーへ偽の
+アクションを注入するものであり、リスナーの中から呼ぶと「dispatch の最中に dispatch
+できない」例外を招きうる。
+
+`emitChange()` は Flux ストア自身に用意されている「バッチ済みリスナーへ変化を通知する」
+ためのメソッドで、データそのものには一切触れず、レデューサーも経由しない。読み取りを
+横取りしている3つのストア——`getNick`/`getMember` を横取りしている `GuildMemberStore`、
+`getNickname` を横取りしている `RelationshipStore`、`UsernameUtils.getName`/`useName` の
+呼び出し元の多くが購読している `UserStore`——それぞれへ個別に呼ぶことで、各ストアを
+購読しているコンポーネントに「読み直して」と伝える。実データは一切書き換えないため、
+このディスパッチ・emitChange のいずれもサーバーへの送信は発生しない。呼び出しは
+個別に try/catch で保護されており、いずれか1つが失敗しても残りの通知は止まらない。
 
 これでもごく一部の描画済み要素は追従しない可能性があるため、モーダルに
 「反映されない箇所があれば Ctrl+R」の注記を置く。

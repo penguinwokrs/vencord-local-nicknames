@@ -6,7 +6,7 @@
 
 import { definePluginSettings } from "@api/Settings";
 import { OptionType } from "@utils/types";
-import { FluxDispatcher, UserStore } from "@webpack/common";
+import { GuildMemberStore, RelationshipStore, UserStore } from "@webpack/common";
 
 import { lookupNickname, NicknameMap, withNickname, withoutNickname } from "./nickname";
 
@@ -83,7 +83,7 @@ export function setNickname(userId: string, input: string, label: string): void 
     // getNickname を呼んでも古いキャッシュを読まないよう、代入より先に無効化する
     invalidateNicknameCache();
     settings.store.nicknames = next;
-    notifyUserUpdate(userId);
+    notifyNicknameChange();
 }
 
 /** ニックネームを解除する。 */
@@ -94,18 +94,36 @@ export function clearNickname(userId: string): void {
     // 理由は setNickname と同じ（代入前に無効化して同期リスナーからの読み直しに備える）
     invalidateNicknameCache();
     settings.store.nicknames = next;
-    notifyUserUpdate(userId);
+    notifyNicknameChange();
 }
 
 /**
- * 描画済みの要素を更新させるため、対象ユーザーの USER_UPDATE を流す。
- * UserStore から取り出した実物をそのまま流すだけで、サーバーへの送信は発生しない。
+ * 描画済みの要素を更新させるため、読み取りを横取りしている各 Flux ストアへ
+ * 「変化した」と伝える。実データには一切触れず、各ストアの emitChange() を
+ * 呼んでバッチ済みリスナーへ再描画を促すだけの、純粋にクライアント側だけの
+ * 通知。Discord のサーバーへは何も送信されない。
+ *
+ * 対象は getNick/getMember を横取りしている GuildMemberStore、getNickname を
+ * 横取りしている RelationshipStore、そして UsernameUtils.getName/useName の
+ * 呼び出し元コンポーネントの多くが購読している UserStore の3つ。1つの emitChange
+ * が失敗しても他のストアの通知が止まらないよう、それぞれ個別に try/catch で保護する
  */
-function notifyUserUpdate(userId: string): void {
+function notifyNicknameChange(): void {
     try {
-        const user = UserStore.getUser(userId);
-        if (user) FluxDispatcher.dispatch({ type: "USER_UPDATE", user });
+        UserStore.emitChange();
     } catch (e) {
-        console.error("[LocalNicknames] USER_UPDATE の発火に失敗しました", e);
+        console.error("[LocalNicknames] UserStore.emitChange の発火に失敗しました", e);
+    }
+
+    try {
+        GuildMemberStore.emitChange();
+    } catch (e) {
+        console.error("[LocalNicknames] GuildMemberStore.emitChange の発火に失敗しました", e);
+    }
+
+    try {
+        RelationshipStore.emitChange();
+    } catch (e) {
+        console.error("[LocalNicknames] RelationshipStore.emitChange の発火に失敗しました", e);
     }
 }
