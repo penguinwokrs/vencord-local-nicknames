@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PLUGIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VENCORD_DIR="${VENCORD_DIR:-$HOME/projects/github.com/Vendicated/Vencord}"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PLUGIN_DIR="$(cd "$HERE/.." && pwd)"
+export VENCORD_DIR="${VENCORD_DIR:-$HOME/projects/github.com/Vendicated/Vencord}"
 LINK_NAME="$(basename "$PLUGIN_DIR")"
 
 if [ ! -d "$VENCORD_DIR/.git" ]; then
@@ -16,11 +17,13 @@ if [ -f "$VENCORD_DIR/.git/shallow" ]; then
 fi
 
 cd "$VENCORD_DIR"
-corepack enable >/dev/null 2>&1 || true
+corepack enable >/dev/null || true
 pnpm install --frozen-lockfile
 
 mkdir -p "$VENCORD_DIR/src/userplugins"
 ln -sfn "$PLUGIN_DIR" "$VENCORD_DIR/src/userplugins/$LINK_NAME"
+
+"$HERE/gen-tsconfig.sh"
 
 echo "setup complete"
 echo "  Vencord : $VENCORD_DIR"

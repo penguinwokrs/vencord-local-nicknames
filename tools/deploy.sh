@@ -4,11 +4,11 @@ set -euo pipefail
 VENCORD_DIR="${VENCORD_DIR:-$HOME/projects/github.com/Vendicated/Vencord}"
 DEPLOY_DIR="${DEPLOY_DIR:-/mnt/c/Users/owner/VencordCustom}"
 
-FILES="vencordDesktopMain.js vencordDesktopPreload.js vencordDesktopRenderer.js vencordDesktopRenderer.css"
+FILES=(vencordDesktopMain.js vencordDesktopPreload.js vencordDesktopRenderer.js vencordDesktopRenderer.css)
 
 mkdir -p "$DEPLOY_DIR"
 
-for f in $FILES; do
+for f in "${FILES[@]}"; do
     if [ ! -f "$VENCORD_DIR/dist/$f" ]; then
         echo "missing: dist/$f  (run tools/build.sh first)" >&2
         exit 1
