@@ -6,7 +6,7 @@
 
 import { GuildMemberStore, RelationshipStore, UsernameUtils } from "@webpack/common";
 
-import { getNickname } from "../store";
+import { getNickname } from "./store";
 
 type AnyFn = (...args: any[]) => any;
 
