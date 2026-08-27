@@ -6,9 +6,30 @@
 
 import { GuildMemberStore, RelationshipStore, UsernameUtils } from "@webpack/common";
 
+import { withMemberNick } from "./nickname";
 import { getNickname } from "./store";
 
 type AnyFn = (...args: any[]) => any;
+
+/**
+ * GuildMemberStore.getMember が返すメンバーオブジェクトの、nick 差し替え済みコピーの
+ * キャッシュ。元のメンバーオブジェクトをキーにし、そのコピーがどの nickname で
+ * 作られたかを一緒に持つ。getMember は描画中に大量に呼ばれるため、同じ入力に対して
+ * 毎回新しいオブジェクトを返すと参照の同一性が壊れ、React のメモ化や === 比較に
+ * 悪影響が出る。Discord がメンバーを実際に更新すると元のオブジェクトの参照ごと
+ * 変わるため、WeakMap のキーとして自然にキャッシュミスし、古いコピーを握り続ける
+ * こともない
+ */
+const memberNickCache = new WeakMap<object, { nickname: string; copy: any; }>();
+
+function getMemberWithNick(member: any, nickname: string): any {
+    const cached = memberNickCache.get(member);
+    if (cached && cached.nickname === nickname) return cached.copy;
+
+    const copy = withMemberNick(member, nickname);
+    memberNickCache.set(member, { nickname, copy });
+    return copy;
+}
 
 interface Wrap {
     target: any;
@@ -82,6 +103,27 @@ export function applyNameOverrides(): void {
     wrap(RelationshipStore, "getNickname", original => function (this: any, userId: any) {
         return getNickname(userId) ?? original.call(this, userId);
     }, "RelationshipStore.getNickname");
+
+    // ギルド内の表示（メンバーリスト、メッセージヘッダなど）は GuildMemberStore.getNick
+    // ではなく getMember(guildId, userId).nick を直接読んでいる箇所があり、getNick だけ
+    // ラップしても反映されないことが実機の突き合わせで確認できている。member が無い、
+    // またはローカルニックネームが無い場合は元の値をそのまま返す（参照も含めて完全に
+    // 不変）。それ以外は member の浅いコピーの nick だけを差し替えて返す
+    //
+    // getTrueMember は意図的にラップしない。あちらは「本物の、加工されていないメンバー」を
+    // 返すためのアクセサで、Discord 純正の「ニックネームを変更」ダイアログの取得元になり
+    // うる。ここまでラップしてしまうと、ローカルニックネームが Discord サーバーへ送信され
+    // うるリスク（README/設計書に既知の制約として記載）を自ら広げることになるため、
+    // 触らないでおく
+    wrap(GuildMemberStore, "getMember", original => function (this: any, guildId: any, userId: any) {
+        const member = original.call(this, guildId, userId);
+        if (!member) return member;
+
+        const nickname = getNickname(userId);
+        if (nickname == null) return member;
+
+        return getMemberWithNick(member, nickname);
+    }, "GuildMemberStore.getMember");
 }
 
 export function removeNameOverrides(): void {

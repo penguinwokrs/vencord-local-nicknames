@@ -120,19 +120,42 @@ Vesktop の Vencord Location を既定から変更すると、Vesktop 側の自�
 
 ### 5.1 中核: 名前解決の横取り
 
-Discord 側の名前の供給源3つをすべてラップし、ローカルニックネームがあれば必ずそれを返す。
+Discord 側の名前の供給源をすべてラップし、ローカルニックネームがあれば必ずそれを返す。
 webpack patch は使わず、実行時に関数を差し替える。
 
 | ラップ対象 | 取得元 | 主に効く画面 |
 | --- | --- | --- |
 | `UsernameUtils.getName(user)` | `@webpack/common` | DM リスト、メンション、プロフィール、フレンド一覧 |
 | `UsernameUtils.useName(user)` | `@webpack/common` | 同上（React フック経路） |
-| `GuildMemberStore.getNick(guildId, userId)` | `@webpack/common` | メンバーリスト、メッセージヘッダ、ボイスチャンネル |
+| `GuildMemberStore.getNick(guildId, userId)` | `@webpack/common` | メンバーリスト、メッセージヘッダ、ボイスチャンネル（の一部） |
 | `RelationshipStore.getNickname(userId)` | `@webpack/common` | フレンドニックネームが効く箇所 |
+| `GuildMemberStore.getMember(guildId, userId)` | `@webpack/common` | ギルド内の表示全般（メンバーリスト、メッセージヘッダなど） |
 
 `UsernameUtils` は `findByPropsLazy("useName", "getGlobalName")` で解決される
 モジュールで、`getName` / `useName` / `getGlobalName` / `getFormattedName` /
 `getUserTag` / `useUserTag` を持つ。
+
+#### なぜ `getNick` だけでは不十分か
+
+`getNick` をラップしても、ギルド内の表示の一部には反映されない。実機で2ユーザーを
+突き合わせたところ、`getNick(guildId, userId)` は両者ともローカルニックネームを正しく
+返していたが、`getMember(guildId, userId).nick`（サーバーニックネームが無いユーザーでは
+`null`）を直接読む画面はローカルニックネームにもサーバーニックネームにもフォール
+バックせず、Discord 本来の表示のままだった。つまりギルド内の一部の表示経路は
+`getNick` を経由せず、`getMember` が返すメンバーオブジェクトの `nick` フィールドを
+直接読んでいる。そのため `getMember` 自体もラップし、返すメンバーオブジェクトの
+`nick` をローカルニックネームで差し替える必要がある。
+
+`getMember` は描画中に大量に呼ばれるため、元の値を変更しない場合（member が無い、
+またはローカルニックネームが無い場合）は元のオブジェクトをそのまま返し、参照の
+同一性を壊さない。差し替えが必要な場合も、元のメンバーオブジェクトをキーにした
+`WeakMap` でコピーをキャッシュし、同じ入力に対して同じコピーを返す（詳細は
+`nameOverride.ts` の `getMemberWithNick` を参照）。
+
+`GuildMemberStore.getTrueMember` は意図的にラップしない。こちらは「本物の、加工
+されていないメンバー」を返すアクセサで、Discord 純正の「ニックネームを変更」
+ダイアログの取得元になりうる。ローカルニックネームが Discord サーバーへ送信され
+うるリスク（README の既知の制約を参照）をこれ以上広げないため、あえて手を付けない。
 
 ラップは以下の形を取る。
 

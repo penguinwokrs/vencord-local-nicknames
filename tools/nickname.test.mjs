@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { lookupNickname, normalizeNickname, sortedEntries, withNickname, withoutNickname } from "../nickname.ts";
+import { lookupNickname, normalizeNickname, sortedEntries, withMemberNick, withNickname, withoutNickname } from "../nickname.ts";
 
 test("normalizeNickname: 前後の空白を落とす", () => {
     assert.equal(normalizeNickname("  ぺんぎん  "), "ぺんぎん");
@@ -185,4 +185,38 @@ test("withoutNickname: プロキシ化されたエントリ値を含む source �
     assert.notEqual(result["2"], keptEntry);
     assert.deepEqual(result, { "2": { nickname: "い", label: "bravo" } });
     assert.doesNotThrow(() => structuredClone(result));
+});
+
+test("withMemberNick: nick 以外のプロパティはそのまま引き継がれる", () => {
+    const member = { userId: "1", guildId: "2", nick: "元のニックネーム", roles: ["a", "b"], premiumSince: null };
+    const result = withMemberNick(member, "ぺんぎん");
+    assert.equal(result.userId, "1");
+    assert.equal(result.guildId, "2");
+    assert.deepEqual(result.roles, ["a", "b"]);
+    assert.equal(result.premiumSince, null);
+});
+
+test("withMemberNick: nick が文字列だった場合、指定したニックネームに置き換わる", () => {
+    const member = { userId: "1", nick: "元のニックネーム" };
+    const result = withMemberNick(member, "ぺんぎん");
+    assert.equal(result.nick, "ぺんぎん");
+});
+
+test("withMemberNick: nick が null だった場合でも、指定したニックネームに置き換わる", () => {
+    const member = { userId: "1", nick: null };
+    const result = withMemberNick(member, "ぺんぎん");
+    assert.equal(result.nick, "ぺんぎん");
+});
+
+test("withMemberNick: 返り値は入力とは別の参照になる", () => {
+    const member = { userId: "1", nick: null };
+    const result = withMemberNick(member, "ぺんぎん");
+    assert.notEqual(result, member);
+});
+
+test("withMemberNick: 入力の member を変更しない", () => {
+    const member = { userId: "1", nick: "元のニックネーム" };
+    const snapshot = { ...member };
+    withMemberNick(member, "ぺんぎん");
+    assert.deepEqual(member, snapshot);
 });

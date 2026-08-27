@@ -104,3 +104,12 @@ export function withoutNickname(map: NicknameMap | undefined, userId: string): N
     delete next[userId];
     return next;
 }
+
+/**
+ * GuildMemberStore.getMember が返すメンバーオブジェクトの nick を、指定した
+ * ニックネームに置き換えた新しいオブジェクトを返す。元の member は変更しない。
+ * nick 以外のプロパティはすべてそのまま引き継ぐ（浅いコピー）。
+ */
+export function withMemberNick(member: Record<string, any>, nickname: string): Record<string, any> {
+    return { ...member, nick: nickname };
+}
