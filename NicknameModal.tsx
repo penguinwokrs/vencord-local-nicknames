@@ -47,7 +47,14 @@ function NicknameModalInner({ user, baseName, props }: Props) {
             <div onKeyDown={e => {
                 // IME composition中の Enter は Submit と見なさない
                 if (e.nativeEvent.isComposing) return;
-                if (e.key === "Enter") save();
+                if (e.key === "Enter") {
+                    // ここで止めないと、この Enter が背後の Discord メッセージ入力欄まで
+                    // 届いてしまい、改行が挿入されてしまう
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.nativeEvent.stopImmediatePropagation?.();
+                    save();
+                }
             }}>
                 <TextInput
                     value={value}
