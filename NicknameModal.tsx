@@ -44,7 +44,11 @@ function NicknameModalInner({ user, baseName, props }: Props) {
             ]}
         >
             {/* TextInput 側の onKeyDown の型が不安定なので、外側の div で拾う */}
-            <div onKeyDown={e => { if (e.key === "Enter") save(); }}>
+            <div onKeyDown={e => {
+                // IME composition中の Enter は Submit と見なさない
+                if (e.nativeEvent.isComposing) return;
+                if (e.key === "Enter") save();
+            }}>
                 <TextInput
                     value={value}
                     onChange={setValue}
