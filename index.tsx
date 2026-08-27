@@ -10,6 +10,7 @@ import { User } from "@vencord/discord-types";
 import { Menu, openModal, UserStore } from "@webpack/common";
 
 import { applyNameOverrides, getOriginalName, removeNameOverrides } from "./nameOverride";
+import { NicknameList } from "./NicknameList";
 import { NicknameModal } from "./NicknameModal";
 import { clearNickname, getNickname, settings } from "./store";
 
@@ -49,6 +50,7 @@ export default definePlugin({
     authors: [{ name: "penguinwokrs", id: 0n }],
     tags: ["Appearance", "Customisation"],
     settings,
+    settingsAboutComponent: NicknameList,
     contextMenus: {
         "user-context": UserContext
     },
