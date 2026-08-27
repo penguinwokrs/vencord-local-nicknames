@@ -17,9 +17,39 @@ set -euo pipefail
 PLUGIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VENCORD_DIR="${VENCORD_DIR:-$HOME/projects/github.com/Vendicated/Vencord}"
 
+# build.sh はカレントディレクトリを変える前に、setup.sh は
+# `cd "$VENCORD_DIR"` した後にこのスクリプトを呼ぶ。そのため相対パスの
+# VENCORD_DIR をそのまま (カレントディレクトリ基準で) 正規化すると、
+# 呼び出し元によって解決結果が変わってしまう (setup.sh 側では
+# 既に cd 済みの VENCORD_DIR を基点に相対パスが再解釈され、
+# パスが二重にずれる)。どちらの呼び出し元でも同じ結果になるよう、
+# 相対パスは常に PLUGIN_DIR (このリポジトリのルート、カレント
+# ディレクトリに依存せず一意に決まる) を基点として解決する。
+# realpath -m はパスが実在しなくても正規化できるので、この時点では
+# まだ VENCORD_DIR の実在性を問わない。
+if [[ "$VENCORD_DIR" != /* ]]; then
+    VENCORD_DIR="$PLUGIN_DIR/$VENCORD_DIR"
+fi
+VENCORD_DIR="$(realpath -m "$VENCORD_DIR")"
+
+if [ ! -d "$VENCORD_DIR" ]; then
+    echo "gen-tsconfig.sh: VENCORD_DIR '$VENCORD_DIR' は存在しないか、ディレクトリではありません。VENCORD_DIR に Vencord のチェックアウト先を指定してください。" >&2
+    exit 1
+fi
+
+if [ ! -f "$VENCORD_DIR/tsconfig.json" ] || [ ! -d "$VENCORD_DIR/src" ]; then
+    echo "gen-tsconfig.sh: VENCORD_DIR '$VENCORD_DIR' は Vencord のチェックアウトに見えません (tsconfig.json または src/ がありません)。VENCORD_DIR に正しい Vencord のチェックアウト先を指定してください。" >&2
+    exit 1
+fi
+
 REL="$(realpath --relative-to="$PLUGIN_DIR" "$VENCORD_DIR")"
 
-cat > "$PLUGIN_DIR/tsconfig.json" <<EOF
+# 書き込み中に中断されても tsconfig.json が壊れた状態で残らないよう、
+# 同じディレクトリ内の一時ファイルに書いてから mv でアトミックに置き換える。
+TMP_FILE="$(mktemp "$PLUGIN_DIR/.tsconfig.json.XXXXXX")"
+trap 'rm -f "$TMP_FILE"' EXIT
+
+cat > "$TMP_FILE" <<EOF
 {
     "compilerOptions": {
         "paths": {
@@ -40,5 +70,7 @@ cat > "$PLUGIN_DIR/tsconfig.json" <<EOF
     }
 }
 EOF
+
+mv "$TMP_FILE" "$PLUGIN_DIR/tsconfig.json"
 
 echo "generated: $PLUGIN_DIR/tsconfig.json (VENCORD_DIR=$VENCORD_DIR)"
