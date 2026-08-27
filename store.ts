@@ -13,6 +13,7 @@ import { lookupNickname, NicknameMap, normalizeNickname } from "./nickname";
 export const settings = definePluginSettings({
     nicknames: {
         type: OptionType.CUSTOM,
+        description: "ユーザーIDをキーとするローカルニックネームのマップ",
         default: {} as NicknameMap
     }
 });
