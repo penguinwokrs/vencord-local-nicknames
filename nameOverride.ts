@@ -85,9 +85,14 @@ export function applyNameOverrides(): void {
 }
 
 export function removeNameOverrides(): void {
-    // 復元に成功したものだけをリストから取り除く。失敗したものを先に pop してしまうと
-    // 記録が失われ、次の start() がラップ済み関数を「元の関数」として扱って二重にラップ
-    // してしまう。末尾から見て splice するのは、走査中のインデックスを崩さないため
+    // 復元に成功したものだけをリストから取り除く。失敗したものが混ざっていても
+    // 次の start() は applyNameOverrides 内で target[method] を再度読み直して
+    // wrap するため、いずれにせよ二重ラップにはなる（getNickname(id) ?? inner(...)
+    // は冪等なので、これ自体は無害）。ここで記録を残す本当の理由は、復元に失敗した
+    // ものの original を失わないこと。記録さえ残っていれば、後で逆順に defineProperty /
+    // 代入をやり直すことで真の元関数へ戻す余地が残る。先に pop してしまうとその
+    // original 自体を失い、二度と復元できない不可逆な状態になる。末尾から見て
+    // splice するのは、走査中のインデックスを崩さないため
     for (let i = wraps.length - 1; i >= 0; i--) {
         const { target, method, original, descriptor } = wraps[i];
         try {
@@ -98,7 +103,15 @@ export function removeNameOverrides(): void {
             console.error(`[LocalNicknames] ${method} の復元に失敗しました`, e);
         }
     }
-    originalGetName = null;
+
+    // UsernameUtils.getName の復元が失敗して wraps に記録が残っている場合、
+    // originalGetName をここで null にしてしまうと、次の start() はまだラップされた
+    // ままの target[method] を「元の関数」として originalGetName に束ねてしまう。
+    // すると getOriginalName() がローカルニックネームを「元の表示名」として返す
+    // ようになり、それが setNickname に label として保存されかねない。復元に
+    // 失敗した場合は originalGetName を保持したままにして、この穴を防ぐ
+    const getNameRestoreFailed = wraps.some(w => w.method === "getName" && w.target === UsernameUtils);
+    if (!getNameRestoreFailed) originalGetName = null;
 }
 
 /**

@@ -20,9 +20,19 @@ export const settings = definePluginSettings({
 /**
  * nicknames マップのキャッシュ。settings.store は触るたびに新しい Proxy を組み立てる
  * ため、毎回 settings.store.nicknames を辿ると描画のたびに複数の Proxy を無駄に生成
- * する。一度取得した参照を使い回し、書き込み（setNickname/clearNickname）があった
- * ときだけ無効化する。settings.plain は丸ごと settings が差し替えられる（クラウド同期
- * や設定インポート）と古いまま残ってしまうため使わない
+ * する（設計 §5.3）。一度取得した参照を使い回し、書き込み（setNickname/clearNickname）
+ * があったときだけ無効化する。
+ *
+ * このキャッシュが古くなりうる窓が一つだけある。設定インポート（`importSettings` /
+ * `src/api/SettingsSync/offline.ts`）とクラウド同期のダウンロードは、いずれも
+ * `Object.assign(PlainSettings, parsed.settings)` でルートオブジェクトをその場で
+ * 書き換えるだけで、`settings.plain` 自体を差し替えることはない。レンダラー側の
+ * `SettingsStore` は `readOnly: true` で構築されており `setData`（丸ごと差し替え）は
+ * 呼ばれた瞬間に例外を投げるため、その経路は原理的に発生しない。したがって
+ * `settings.plain.nicknames` を毎回読み直せばインポート後もクラウド同期後も最新の
+ * 値になるが、このモジュールレベルのキャッシュだけは差し替え前の参照を持ち続けて
+ * しまう。プラグインが無効化されている間にインポートや同期が起きるとこの窓に
+ * 入るため、start() で invalidateNicknameCache() を呼んで読み直しを強制する
  */
 let cachedNicknames: NicknameMap | undefined;
 
@@ -31,7 +41,8 @@ function getNicknameMap(): NicknameMap {
     return cachedNicknames;
 }
 
-function invalidateNicknameCache(): void {
+/** nicknames マップのキャッシュを無効化する。index.tsx の start() からも呼ばれる */
+export function invalidateNicknameCache(): void {
     cachedNicknames = undefined;
 }
 
@@ -64,8 +75,11 @@ export function setNickname(userId: string, input: string, label: string): void 
     if (nickname === null) delete next[userId];
     else next[userId] = { nickname, label };
 
-    settings.store.nicknames = next;
+    // settings.store への代入は同期的にリスナーへ通知する。対象オブジェクトは
+    // 代入前の時点で既に更新済みなので、リスナーが同期的に再描画して
+    // getNickname を呼んでも古いキャッシュを読まないよう、代入より先に無効化する
     invalidateNicknameCache();
+    settings.store.nicknames = next;
     notifyUserUpdate(userId);
 }
 
@@ -74,8 +88,9 @@ export function clearNickname(userId: string): void {
     const next: NicknameMap = { ...settings.store.nicknames };
     delete next[userId];
 
-    settings.store.nicknames = next;
+    // 理由は setNickname と同じ（代入前に無効化して同期リスナーからの読み直しに備える）
     invalidateNicknameCache();
+    settings.store.nicknames = next;
     notifyUserUpdate(userId);
 }
 

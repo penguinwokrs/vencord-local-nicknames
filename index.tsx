@@ -12,7 +12,7 @@ import { Menu, openModal, UserStore } from "@webpack/common";
 import { applyNameOverrides, getOriginalName, removeNameOverrides } from "./nameOverride";
 import { NicknameList } from "./NicknameList";
 import { NicknameModal } from "./NicknameModal";
-import { clearNickname, getNickname, settings } from "./store";
+import { clearNickname, getNickname, invalidateNicknameCache, settings } from "./store";
 
 const UserContext: NavContextMenuPatchCallback = (children, { user }: { user?: User; }) => {
     if (!user) return;
@@ -56,6 +56,9 @@ export default definePlugin({
     },
 
     start() {
+        // 無効化されていた間に設定インポートやクラウド同期のダウンロードが
+        // 起きていた場合に備え、nicknames マップのキャッシュを読み直させる
+        invalidateNicknameCache();
         applyNameOverrides();
     },
 
