@@ -47,7 +47,7 @@ export function sortedEntries(map: NicknameMap | undefined): Array<{ userId: str
         .filter(([, entry]) => entry != null && typeof entry.nickname === "string" && entry.nickname.trim().length > 0)
         .map(([userId, entry]) => ({
             userId,
-            nickname: entry.nickname,
+            nickname: entry.nickname.trim(),
             label: typeof entry.label === "string" && entry.label.length > 0 ? entry.label : userId
         }))
         .sort((a, b) => a.label.localeCompare(b.label));

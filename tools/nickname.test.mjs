@@ -73,3 +73,20 @@ test("sortedEntries: label が無ければ userId で代用する", () => {
 test("sortedEntries: map が無ければ空配列", () => {
     assert.deepEqual(sortedEntries(undefined), []);
 });
+
+test("lookupNickname: 前後に空白がある場合でも正規化して返す", () => {
+    const map = { "1": { nickname: "  あ  ", label: "a" } };
+    assert.equal(lookupNickname(map, "1"), "あ");
+});
+
+test("sortedEntries: 前後に空白がある場合でも正規化して返す", () => {
+    const map = { "1": { nickname: "  あ  ", label: "a" } };
+    assert.deepEqual(sortedEntries(map), [
+        { userId: "1", nickname: "あ", label: "a" }
+    ]);
+});
+
+test("sortedEntries: nickname キーが無いエントリを除外する", () => {
+    const map = { "1": { label: "a" } };
+    assert.deepEqual(sortedEntries(map), []);
+});
