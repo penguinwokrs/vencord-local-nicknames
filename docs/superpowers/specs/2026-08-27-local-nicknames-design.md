@@ -1,0 +1,298 @@
+# LocalNicknames 設計書
+
+作成日: 2026-08-27
+
+## 1. 目的
+
+Discord の他ユーザーに対して、**自分のクライアント内でのみ有効なニックネーム**を付けられるようにする。
+付けたニックネームは、そのユーザーが所属するサーバーを問わず、常に同じ表示名として使われる。
+
+サーバー API は一切使わない。ニックネームは他人には見えず、Discord のサーバーにも送信されない。
+
+## 2. 非目標
+
+- ニックネームの他端末との同期（設定ファイルを手動でコピーすれば可能だが、機能としては提供しない）
+- 自分自身へのニックネーム付与
+- ニックネームの一括インポート／エクスポート UI
+- 設定画面からのニックネーム編集（編集は右クリックメニューに一本化する）
+
+プラグイン名（Vencord の設定画面やプラグイン一覧に出る識別子）は `LocalNicknames` とする。
+
+## 3. 動作仕様
+
+### 3.1 ニックネームを付ける
+
+1. ユーザーを右クリックする（メンバーリスト、メッセージのアイコンや名前、DM リスト、プロフィールのいずれでも同じメニューが出る）
+2. コンテキストメニューの `ニックネームを付ける` をクリックする
+3. モーダルが開く。テキスト入力欄と、フッターに `キャンセル` `OK` の2つのボタンがある
+4. ニックネームを入力して `OK` を押すと保存され、その場で表示名が置き換わる
+5. `キャンセル` または Esc で何もせず閉じる
+
+すでにニックネームが設定されているユーザーでは、メニューの項目が `ニックネームを変更` になり、モーダルの入力欄には現在のニックネームがプリフィルされる。
+
+### 3.2 ニックネームを解除する
+
+以下のいずれでも、保存が削除され Discord 標準の表示に戻る。
+
+- 右クリックメニューの `ニックネームを解除`（設定済みのユーザーにのみ表示される）
+- モーダルの入力欄を**空欄のまま** `OK` を押す（前後の空白のみの場合も空欄として扱う）
+
+### 3.3 表示の優先順位
+
+ローカルニックネームは、Discord が持つあらゆる名前より優先される。
+
+```
+ローカルニックネーム  >  サーバーニックネーム  >  フレンドニックネーム  >  表示名  >  ユーザー名
+```
+
+サーバーごとの分岐を一切持たないため、「どのサーバーで見ても同じ表示になる」ことが構造的に保証される。
+
+## 4. リポジトリ構成と導入
+
+### 4.1 構成
+
+Vencord のサードパーティプラグイン（UserPlugin）の慣習に従い、**リポジトリのルートがそのままプラグインディレクトリ**になる。
+
+```
+vencord-local-nicknames/
+├── index.tsx           プラグイン定義、名前解決の横取り、コンテキストメニュー
+├── store.ts            ニックネームの読み書き
+├── NicknameModal.tsx   入力モーダル
+├── settings.tsx        設定画面の一覧 + 削除 UI
+├── README.md           導入手順
+├── docs/               設計書など
+└── tools/
+    ├── setup.sh        Vencord を clone し、依存を入れ、本リポジトリを配置する
+    ├── build.sh        Vencord をビルドする
+    ├── deploy.sh       成果物を Vesktop の参照先へコピーする
+    └── update.sh       Vencord を更新して再ビルド・再配置する
+```
+
+**ルートに `package.json` を置かない。** Vencord のビルドはプラグインディレクトリを
+`import p from "./userplugins/vencord-local-nicknames"` の形で読み込むため、そこに `package.json` が
+あると Node の解決規則で `main` フィールドが先に評価され、`index.tsx` に到達できなくなる恐れがある。
+ビルド関連はすべて `tools/` 配下のシェルスクリプトとして持つ。
+
+### 4.2 なぜ「プラグイン単体の成果物」にできないのか
+
+Vencord にはランタイムのプラグイン読み込み機構が存在しない。ビルド時に
+`scripts/build/common.mjs` が `src/plugins` と `src/userplugins` を走査し、import 文を生成して
+単一のバンドルに固める。Vesktop 側も、読むのは決め打ちの4ファイルだけである。
+
+したがって**成果物は必然的に「本プラグインを含んだ Vencord のビルド一式」**になる。
+
+### 4.3 ビルドと配置
+
+```
+tools/setup.sh    →  ~/projects/github.com/Vendicated/Vencord を clone、pnpm install、
+                     src/userplugins/vencord-local-nicknames から本リポジトリへ
+                     シンボリックリンクを張る
+tools/build.sh    →  pnpm build --standalone --disable-updater
+                     dist/ に vencordDesktopMain.js / vencordDesktopPreload.js /
+                     vencordDesktopRenderer.js / vencordDesktopRenderer.css が出る
+tools/deploy.sh   →  上記4ファイルと、中身が {} の package.json を配置先へコピー
+```
+
+本リポジトリは `src/userplugins/` にコピーせず**シンボリックリンク**で参照する。
+編集した内容が即座にビルドへ反映され、二重管理にならないため。
+Vencord のプラグイン走査は `readdir` の結果に対して `isDirectory()` を検査せず、
+ディレクトリ名から import 文を組み立てるだけなので、シンボリックリンクで問題なく解決される
+（`scripts/build/common.mjs`）。
+
+`--standalone --disable-updater` を付けるのは、Vencord 内蔵のアップデータが
+（git リポジトリを同梱しない配置形態では動作しないため）無用なエラーを出さないようにするため。
+
+配置先は Windows 側の固定ディレクトリ（既定: `C:\Users\owner\VencordCustom`）とし、
+Vesktop の 設定 → Vencord Location にこのディレクトリを一度だけ指定する。
+
+Vesktop はこのディレクトリに `package.json` と上記4ファイルが揃っているかだけを検証し、
+揃っていれば起動時には何もしない。
+
+### 4.4 更新
+
+`tools/update.sh` が Vencord の `git pull` → 再ビルド → 再配置を1コマンドで行う。
+
+Vesktop の Vencord Location を既定から変更すると、Vesktop 側の自動取得は行われなくなる。
+ただし Vesktop の起動処理は「ファイルが揃っていれば何もしない」という実装であり、
+既定のままでも起動ごとに Vencord が更新されるわけではないため、失われるものは限定的である。
+
+## 5. アーキテクチャ
+
+### 5.1 中核: 名前解決の横取り
+
+Discord 側の名前の供給源3つをすべてラップし、ローカルニックネームがあれば必ずそれを返す。
+webpack patch は使わず、実行時に関数を差し替える。
+
+| ラップ対象 | 取得元 | 主に効く画面 |
+| --- | --- | --- |
+| `UsernameUtils.getName(user)` | `@webpack/common` | DM リスト、メンション、プロフィール、フレンド一覧 |
+| `UsernameUtils.useName(user)` | `@webpack/common` | 同上（React フック経路） |
+| `GuildMemberStore.getNick(guildId, userId)` | `@webpack/common` | メンバーリスト、メッセージヘッダ、ボイスチャンネル |
+| `RelationshipStore.getNickname(userId)` | `@webpack/common` | フレンドニックネームが効く箇所 |
+
+`UsernameUtils` は `findByPropsLazy("useName", "getGlobalName")` で解決される
+モジュールで、`getName` / `useName` / `getGlobalName` / `getFormattedName` /
+`getUserTag` / `useUserTag` を持つ。
+
+ラップは以下の形を取る。
+
+```
+const original = target[method];
+target[method] = function (...args) {
+    const nickname = resolveNickname(extractUserId(args));
+    if (nickname != null) return nickname;
+    return original.apply(this, args);
+};
+```
+
+`useName` はフックだが、ニックネームがある場合でもフックの呼び出し順序を壊さないよう
+**必ず先に元のフックを呼んでから**戻り値を差し替える。
+
+`stop()` で全てのラップを元に戻す。
+
+### 5.2 自分自身の除外
+
+`UserStore.getCurrentUser().id` と一致するユーザーには、ニックネームを適用しない。
+
+`GuildMemberStore.getNick` は「サーバープロフィールを編集」ダイアログのニックネーム欄の
+初期値にも使われる。ここを書き換えると、自分のサーバーニックネームを意図せず
+上書き送信する事故が起きうるため、明示的に除外する。
+
+コンテキストメニューにも、自分自身に対しては項目を出さない。
+
+### 5.3 パフォーマンス
+
+`resolveNickname` は毎フレーム大量に呼ばれる。設定オブジェクトへの参照を保持し、
+`Record<userId, ...>` の単純なキー参照1回で済ませる。走査やコピーは行わない。
+
+## 6. データモデルと保存
+
+`definePluginSettings` の `OptionType.CUSTOM` として保持する。
+実体は Vesktop の `settings.json` の `plugins.LocalNicknames.nicknames` に平文 JSON で入るため、
+ファイルを直接見てバックアップや編集ができる。
+
+```ts
+type NicknameEntry = {
+    nickname: string;
+    label: string;   // 保存時点で見えていた元の表示名。設定画面の一覧で「誰か」を示すため
+};
+
+type NicknameMap = Record<string /* userId */, NicknameEntry>;
+```
+
+`label` を持つのは、設定画面を開いた時点でそのユーザーが Discord 側のキャッシュに
+載っているとは限らないため。載っていればそちらを優先して表示し、なければ `label` を使う。
+
+空文字列・空白のみのニックネームは保存しない。保存操作としてはエントリの削除になる。
+
+## 7. UI
+
+### 7.1 コンテキストメニュー
+
+`definePlugin` の `contextMenus: { "user-context": ... }` を使う。
+`user-context` はメンバーリスト、メッセージ、DM リスト、プロフィールで共通のメニュー ID であり、
+1つ登録すればすべての場所に出る。
+
+- 未設定: `ニックネームを付ける`
+- 設定済み: `ニックネームを変更` と `ニックネームを解除` の2項目
+- 自分自身: 何も出さない
+
+### 7.2 モーダル
+
+`openModal` と `ModalRoot` / `ModalHeader` / `ModalContent` / `ModalFooter` /
+`ModalCloseButton` を使う。
+
+- ヘッダー: `ニックネームを付ける`（変更時は `ニックネームを変更`）と閉じるボタン
+- コンテンツ: 対象ユーザーの現在の表示名、`TextInput`（既存値をプリフィル、オートフォーカス）、
+  「空欄で保存するとニックネームを解除します」「反映されない箇所があれば Ctrl+R で再読み込みしてください」の注記
+- フッター: `キャンセル`（副次的な見た目）と `OK`（主要な見た目）
+- Enter で OK、Esc でキャンセル
+
+### 7.3 設定画面
+
+`OptionType.COMPONENT` で一覧を描画する。
+
+各行は「元の名前 → ニックネーム」と削除ボタン。1件も無いときは空状態の文言を出す。
+編集は行わない（右クリックメニューに一本化する）。
+
+## 8. 変更の即時反映
+
+保存・解除の直後に、対象ユーザーの `USER_UPDATE` を Flux に流して再描画を促す。
+
+```ts
+FluxDispatcher.dispatch({ type: "USER_UPDATE", user: UserStore.getUser(userId) });
+```
+
+`UserStore` から取り出した実物のユーザーオブジェクトをそのまま流すだけのローカル完結の
+ディスパッチであり、サーバーへの送信は発生しない。
+
+これでもごく一部の描画済み要素は追従しない可能性があるため、モーダルに
+「反映されない箇所があれば Ctrl+R」の注記を置く。
+
+## 9. ShowMeYourName との併用
+
+`ShowMeYourName` は有効のまま併用する（現在の設定は `mode: "nick-user"`）。
+
+同プラグインはメッセージヘッダを patch して「ニックネーム + ユーザー名」を併記する。
+本プラグインは `GuildMemberStore.getNick` をラップして「ニックネーム」側に入るため、
+メッセージヘッダの表示は次のようになる。
+
+```
+<付けたニックネーム>  <元のusername>
+```
+
+元の名前が横に残るので実用上は都合がよい。どちらのプラグインも壊れない。
+
+メッセージヘッダ以外（メンバーリスト、DM リスト、ボイスチャンネルなど）は
+`ShowMeYourName` の対象外なので、ローカルニックネームのみが表示される。
+
+## 10. エラーハンドリング
+
+- ラップ対象のモジュールが見つからない場合は、そのラップだけを諦めてログを出し、
+  他のラップとプラグイン自体は動作を続ける。Discord の内部変更で一部の画面だけ
+  効かなくなっても、全体が落ちないようにする。
+- `resolveNickname` の内部で例外が出た場合は `null` を返し、元の関数の結果に委ねる。
+  名前解決は描画の最内周なので、ここで throw させない。
+- 設定画面と モーダルは `ErrorBoundary` で包む。
+- 保存データが壊れた形（想定外の型）だった場合は、その エントリを無視する。
+
+## 11. 検証方針
+
+Vencord には自動テストの仕組みが無いため、検証は実機での目視確認になる。
+
+自動で確認できるもの:
+
+- `pnpm build --standalone --disable-updater` が成功すること
+- TypeScript の型チェックが通ること
+- ESLint が通ること
+
+実機で確認すべき項目（手順を README に置く）:
+
+1. 右クリックメニューに項目が出る（メンバーリスト、メッセージ、DM リスト、プロフィール）
+2. モーダルの OK / キャンセル / Esc / Enter が期待通りに動く
+3. 保存後、リロードせずにメッセージヘッダとメンバーリストの表示が変わる
+4. **別のサーバーで同じユーザーを見ても同じニックネームが出る**（サーバーニックネームが
+   設定されているユーザーで確認すること）
+5. DM リスト、ボイスチャンネル、メンション、プロフィールでも置き換わる
+6. 空欄で保存すると標準の表示に戻る
+7. メニューの「ニックネームを解除」でも標準の表示に戻る
+8. 自分自身には項目が出ない。自分のサーバープロフィール編集画面のニックネーム欄が
+   書き換わっていない
+9. 設定画面に一覧が出て、削除ボタンが効く
+10. Vesktop を再起動しても設定が残っている
+11. `ShowMeYourName` との併記表示が壊れていない
+
+## 12. 既知の制約とリスク
+
+- **Discord の内部実装変更で壊れうる。** `UsernameUtils` などは Vencord が webpack から
+  発見しているモジュールであり、Discord 側の変更で見つからなくなる可能性がある。
+  その場合は 10 の方針により静かに機能が効かなくなる（クラッシュはしない）。
+- **Vencord 本体の自動更新の対象外になる。** `tools/update.sh` で手動更新する。
+- **公式へのコントリビュートはできない。** Vencord の `CONTRIBUTING.md` は AI が書いた
+  コードの PR を明確に禁止しており、違反は永久ブロックとされている。本プラグインは
+  ローカル専用の UserPlugin として運用する。
+- **サポート対象外の印が付く。** Vencord の SupportHelper は UserPlugin が入っていると
+  診断情報に `Has UserPlugins` の警告を出す。これは仕様であり、想定通りの挙動。
+- 検索やメンション入力の補完でも、ラップした関数が使われる箇所ではニックネームが
+  表示される。表示のみでありサーバーに送信される内容は変わらないが、
+  「元のユーザー名で検索したのに違う名前で出る」という体験になりうる。
