@@ -1,0 +1,19 @@
+{
+    "compilerOptions": {
+        "paths": {
+            "@main/*": ["../../Vendicated/Vencord/src/main/*"],
+            "@api/*": ["../../Vendicated/Vencord/src/api/*"],
+            "@components/*": ["../../Vendicated/Vencord/src/components/*"],
+            "@debug/*": ["../../Vendicated/Vencord/src/debug/*"],
+            "@utils/*": ["../../Vendicated/Vencord/src/utils/*"],
+            "@plugins/*": ["../../Vendicated/Vencord/src/plugins/*"],
+            "@shared/*": ["../../Vendicated/Vencord/src/shared/*"],
+            "@webpack/common": ["../../Vendicated/Vencord/src/webpack/common"],
+            "@webpack/common/*": ["../../Vendicated/Vencord/src/webpack/common/*"],
+            "@webpack": ["../../Vendicated/Vencord/src/webpack/webpack"],
+            "@webpack/patcher": ["../../Vendicated/Vencord/src/webpack/patchWebpack"],
+            "@webpack/wreq.d": ["../../Vendicated/Vencord/src/webpack/wreq.d"],
+            "@webpack/types": ["../../Vendicated/Vencord/src/webpack/types"]
+        }
+    }
+}
