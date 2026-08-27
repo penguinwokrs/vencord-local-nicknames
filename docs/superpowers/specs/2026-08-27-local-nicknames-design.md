@@ -130,6 +130,7 @@ webpack patch は使わず、実行時に関数を差し替える。
 | `GuildMemberStore.getNick(guildId, userId)` | `@webpack/common` | メンバーリスト、メッセージヘッダ、ボイスチャンネル（の一部） |
 | `RelationshipStore.getNickname(userId)` | `@webpack/common` | フレンドニックネームが効く箇所 |
 | `GuildMemberStore.getMember(guildId, userId)` | `@webpack/common` | ギルド内の表示全般（メンバーリスト、メッセージヘッダなど） |
+| `GuildMemberStore.getMembers(guildId)` | `@webpack/common` | @ メンションのオートコンプリートの候補元（`queryGuildUsers` がこれをフィルタしている） |
 
 `UsernameUtils` は `findByPropsLazy("useName", "getGlobalName")` で解決される
 モジュールで、`getName` / `useName` / `getGlobalName` / `getFormattedName` /
@@ -152,10 +153,47 @@ webpack patch は使わず、実行時に関数を差し替える。
 `WeakMap` でコピーをキャッシュし、同じ入力に対して同じコピーを返す（詳細は
 `nameOverride.ts` の `getMemberWithNick` を参照）。
 
+#### なぜ `getMember`（単数）だけでも不十分か（`getMembers`）
+
+@ メンションのオートコンプリートは `getNick` も `getMember`（単数）も経由しない。
+実行中のクライアントからモジュールソースを直接抽出して確認したところ、候補生成
+（`queryGuildUsers`）は次のようになっている（変数名は難読化されたまま）。
+
+```js
+queryGuildUsers(e) {
+    let { guildId: t, query: n, limit: i = 10, ... } = e;
+    if (null == F.A.getGuild(t)) return [];
+    ...
+    let o = x.Ay.getMembers(t).filter(eS);          // x.Ay は GuildMemberStore
+    return r && n.length > 0 && X.A.requestMembers(t, n, i),
+    eC({ query: n, members: o, limit: i, ... })     // eC が名前のマッチングを行う
+}
+```
+
+候補の元データは `GuildMemberStore.getMembers(guildId)` が返すギルドの全メンバー
+配列そのもので、事前構築された検索インデックス（`searchable` のような項目）は
+このモジュール内に無く、クエリのたびにストアから読み直している。つまり `getMembers`
+が返すメンバーオブジェクトの `nick` を差し替えれば、ランタイムラップだけでマッチング
+対象に届く。そのため `getMembers` 自体もラップ対象に加える。
+
+`getMembers` はギルドの全メンバーを返し、オートコンプリートは入力のたびにこれを
+呼ぶため、`getMember`（単数）以上に呼び出し頻度・データ量の両面でパフォーマンスに
+気を配る必要がある。差し替えが必要な要素は `getMember` と同じ `getMemberWithNick`
+（`WeakMap` キャッシュ）を再利用し、`getMember` 経由でも `getMembers` 経由でも同じ
+メンバーには同じ参照済みコピーが返るようにする。加えて配列自体も `WeakMap` で
+キャッシュする（元の配列をキーに、差し替え後の配列と、それを構築した時点の
+nicknames マップの参照を保持する）。nicknames マップは `setNickname`/`clearNickname`
+のときだけ新しい参照に置き換わる（`store.ts`）ため、参照が前回と同じなら中身も
+変わっていないと判定でき、キャッシュを安全に再利用できる。差し替えが1件も無い
+場合は、この配列キャッシュの構築自体をせず元の配列をそのまま返す（詳細は
+`nameOverride.ts` の `getMembersWithNicks` / `membersArrayCache` / `store.ts` の
+`getNicknameMapRef` を参照）。
+
 `GuildMemberStore.getTrueMember` は意図的にラップしない。こちらは「本物の、加工
 されていないメンバー」を返すアクセサで、Discord 純正の「ニックネームを変更」
-ダイアログの取得元になりうる。ローカルニックネームが Discord サーバーへ送信され
-うるリスク（README の既知の制約を参照）をこれ以上広げないため、あえて手を付けない。
+ダイアログの取得元になりうる。`getMember` / `getMembers` をここまでラップしても
+なお、ローカルニックネームが Discord サーバーへ送信されうるリスク（README の
+既知の制約を参照）をこれ以上広げないため、あえて手を付けない。
 
 ラップは以下の形を取る。
 

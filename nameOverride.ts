@@ -6,8 +6,8 @@
 
 import { GuildMemberStore, RelationshipStore, UsernameUtils } from "@webpack/common";
 
-import { withMemberNick } from "./nickname";
-import { getNickname } from "./store";
+import { NicknameMap, withMemberNick } from "./nickname";
+import { getNickname, getNicknameMapRef } from "./store";
 
 type AnyFn = (...args: any[]) => any;
 
@@ -29,6 +29,42 @@ function getMemberWithNick(member: any, nickname: string): any {
     const copy = withMemberNick(member, nickname);
     memberNickCache.set(member, { nickname, copy });
     return copy;
+}
+
+/**
+ * GuildMemberStore.getMembers が返す配列全体の、nick 差し替え済みコピーの
+ * キャッシュ。元の配列オブジェクトをキーにし、その配列が「どの nicknames マップの
+ * 参照を元に作られたか」（store.ts の getNicknameMapRef）を一緒に持つ。getMembers は
+ * ギルドの全メンバーを返し、@ メンションのオートコンプリートが入力のたびに呼ぶため、
+ * 一致しない限り毎回新しい配列を作るのは避けたい。nicknames マップは
+ * setNickname/clearNickname のときだけ新しい参照に置き換わる（store.ts 参照）ので、
+ * 参照が前回と同じなら中身も変わっていないと判定できる。GuildMemberStore が実際に
+ * メンバーを更新すると元の配列の参照ごと変わるため、WeakMap のキーとして自然に
+ * キャッシュミスし、古い配列を握り続けることもない
+ */
+const membersArrayCache = new WeakMap<any[], { nicknameMapRef: NicknameMap; result: any[]; }>();
+
+function getMembersWithNicks(members: any[]): any[] {
+    const nicknameMapRef = getNicknameMapRef();
+
+    const cached = membersArrayCache.get(members);
+    if (cached && cached.nicknameMapRef === nicknameMapRef) return cached.result;
+
+    // 差し替えが1件もなければ、割り当てを増やさないよう元の配列をそのまま返す
+    // （参照も含めて完全に不変）。差し替えがある要素だけ getMemberWithNick で
+    // 置き換え、それ以外の要素は参照をそのまま引き継ぐ
+    let result = members;
+    for (let i = 0; i < members.length; i++) {
+        const member = members[i];
+        const nickname = getNickname(member?.userId);
+        if (nickname == null) continue;
+
+        if (result === members) result = members.slice();
+        result[i] = getMemberWithNick(member, nickname);
+    }
+
+    membersArrayCache.set(members, { nicknameMapRef, result });
+    return result;
 }
 
 interface Wrap {
@@ -109,12 +145,6 @@ export function applyNameOverrides(): void {
     // ラップしても反映されないことが実機の突き合わせで確認できている。member が無い、
     // またはローカルニックネームが無い場合は元の値をそのまま返す（参照も含めて完全に
     // 不変）。それ以外は member の浅いコピーの nick だけを差し替えて返す
-    //
-    // getTrueMember は意図的にラップしない。あちらは「本物の、加工されていないメンバー」を
-    // 返すためのアクセサで、Discord 純正の「ニックネームを変更」ダイアログの取得元になり
-    // うる。ここまでラップしてしまうと、ローカルニックネームが Discord サーバーへ送信され
-    // うるリスク（README/設計書に既知の制約として記載）を自ら広げることになるため、
-    // 触らないでおく
     wrap(GuildMemberStore, "getMember", original => function (this: any, guildId: any, userId: any) {
         const member = original.call(this, guildId, userId);
         if (!member) return member;
@@ -124,6 +154,27 @@ export function applyNameOverrides(): void {
 
         return getMemberWithNick(member, nickname);
     }, "GuildMemberStore.getMember");
+
+    // @ メンションのオートコンプリートは GuildMemberStore.getNick でも getMember
+    // （単数）でもなく、queryGuildUsers が GuildMemberStore.getMembers(guildId) で
+    // 取得したギルドの全メンバー配列をそのまま候補元にしてマッチングしている
+    // （Discord の実モジュールソースで確認済み）。getMember 側の置き換えだけでは
+    // この配列に反映されないため、getMembers 自体もラップする。差し替えは
+    // getMember と同じ getMemberWithNick（WeakMap キャッシュ）を再利用するので、
+    // 同じメンバーであれば getMember 経由でも getMembers 経由でも同一の参照を返す。
+    // 配列自体のキャッシュは membersArrayCache を参照
+    wrap(GuildMemberStore, "getMembers", original => function (this: any, guildId: any) {
+        const members = original.call(this, guildId);
+        if (!Array.isArray(members)) return members;
+
+        return getMembersWithNicks(members);
+    }, "GuildMemberStore.getMembers");
+
+    // getTrueMember は意図的にラップしない。あちらは「本物の、加工されていないメンバー」を
+    // 返すためのアクセサで、Discord 純正の「ニックネームを変更」ダイアログの取得元になり
+    // うる。getMember / getMembers をここまでラップしてもなお、ローカルニックネームが
+    // Discord サーバーへ送信されうるリスク（README/設計書に既知の制約として記載）を
+    // これ以上自ら広げないため、getTrueMember にだけは触れないでおく
 }
 
 export function removeNameOverrides(): void {

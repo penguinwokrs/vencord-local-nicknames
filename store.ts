@@ -49,6 +49,29 @@ export function invalidateNicknameCache(): void {
 }
 
 /**
+ * 現在の nicknames マップの参照をそのまま返す。getNickname と同じ
+ * getNicknameMap() を経由するため、返る参照は getNickname が内部で読んでいる
+ * ものと常に一致する。nameOverride.ts の getMembers 配列キャッシュが「前回
+ * ビルド時点からニックネームの内容が変わっていないか」を判定するためだけに
+ * 公開するアクセサで、setNickname/clearNickname は必ず新しいプレーン
+ * オブジェクトを作ってから invalidateNicknameCache() → 代入する（このモジュール
+ * 内の他の関数の実装を参照）ため、内容に変更があれば参照も必ず変わる。
+ * 変更が無ければ同じ参照を返し続ける。
+ *
+ * getNickname 同様、@ メンションのオートコンプリートなど描画の内周から呼ばれうる
+ * ため例外を外へ出さない。読み取りに失敗した場合は誰とも一致しない新しい空
+ * オブジェクトを返す。これにより呼び出し側の配列キャッシュは常にミスしてキャッシュ
+ * を使わなくなるだけで、個々の getNickname 自体は自前の try/catch で安全に失敗する
+ */
+export function getNicknameMapRef(): NicknameMap {
+    try {
+        return getNicknameMap();
+    } catch {
+        return {};
+    }
+}
+
+/**
  * userId に対するローカルニックネームを返す。無ければ null。
  * 描画の最内周から毎フレーム呼ばれるので、例外を絶対に外へ出さない。
  */
