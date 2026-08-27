@@ -18,6 +18,24 @@ export const settings = definePluginSettings({
 });
 
 /**
+ * nicknames マップのキャッシュ。settings.store は触るたびに新しい Proxy を組み立てる
+ * ため、毎回 settings.store.nicknames を辿ると描画のたびに複数の Proxy を無駄に生成
+ * する。一度取得した参照を使い回し、書き込み（setNickname/clearNickname）があった
+ * ときだけ無効化する。settings.plain は丸ごと settings が差し替えられる（クラウド同期
+ * や設定インポート）と古いまま残ってしまうため使わない
+ */
+let cachedNicknames: NicknameMap | undefined;
+
+function getNicknameMap(): NicknameMap {
+    if (cachedNicknames === undefined) cachedNicknames = settings.store.nicknames;
+    return cachedNicknames;
+}
+
+function invalidateNicknameCache(): void {
+    cachedNicknames = undefined;
+}
+
+/**
  * userId に対するローカルニックネームを返す。無ければ null。
  * 描画の最内周から毎フレーム呼ばれるので、例外を絶対に外へ出さない。
  */
@@ -29,7 +47,7 @@ export function getNickname(userId: string | undefined): string | null {
         // 初期値にも使われるため、書き換えると自分の nick を誤って上書きしうる
         if (userId === UserStore.getCurrentUser()?.id) return null;
 
-        return lookupNickname(settings.store.nicknames, userId);
+        return lookupNickname(getNicknameMap(), userId);
     } catch {
         return null;
     }
@@ -47,6 +65,7 @@ export function setNickname(userId: string, input: string, label: string): void 
     else next[userId] = { nickname, label };
 
     settings.store.nicknames = next;
+    invalidateNicknameCache();
     notifyUserUpdate(userId);
 }
 
@@ -56,6 +75,7 @@ export function clearNickname(userId: string): void {
     delete next[userId];
 
     settings.store.nicknames = next;
+    invalidateNicknameCache();
     notifyUserUpdate(userId);
 }
 

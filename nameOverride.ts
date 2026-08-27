@@ -14,6 +14,11 @@ interface Wrap {
     target: any;
     method: string;
     original: AnyFn;
+    /**
+     * ラップ前に取得したプロパティ記述子。復元時にこれがあれば defineProperty で
+     * 戻す。取得できなかった場合（記述子が存在しない等）は null で、代入で戻す
+     */
+    descriptor: PropertyDescriptor | null;
 }
 
 const wraps: Wrap[] = [];
@@ -29,8 +34,28 @@ function wrap(target: any, method: string, make: (original: AnyFn) => AnyFn, lab
             return null;
         }
 
-        target[method] = make(original);
-        wraps.push({ target, method, original });
+        const descriptor = Object.getOwnPropertyDescriptor(target, method) ?? null;
+        const wrapper = make(original);
+
+        try {
+            // GuildMemberStore / RelationshipStore は Flux のクラスインスタンスなので、
+            // ここへの代入は自身のプロパティとしてプロトタイプの上に生える形になり必ず成功する
+            target[method] = wrapper;
+        } catch {
+            // UsernameUtils は findByPropsLazy が返す proxyLazy で、実体は webpack の
+            // モジュール名前空間。ハーモニーエクスポートのプロパティは setter を持たない
+            // アクセサのため、代入は strict モードで TypeError になる。Vencord 側の
+            // patchWebpack は configurable: true を保証しているので、defineProperty
+            // であれば proxyLazy の defineProperty トラップ経由で実モジュールへ届く
+            Object.defineProperty(target, method, {
+                value: wrapper,
+                writable: true,
+                enumerable: true,
+                configurable: true
+            });
+        }
+
+        wraps.push({ target, method, original, descriptor });
         return original;
     } catch (e) {
         console.error(`[LocalNicknames] ${label} のラップに失敗しました`, e);
@@ -60,10 +85,15 @@ export function applyNameOverrides(): void {
 }
 
 export function removeNameOverrides(): void {
-    while (wraps.length) {
-        const { target, method, original } = wraps.pop()!;
+    // 復元に成功したものだけをリストから取り除く。失敗したものを先に pop してしまうと
+    // 記録が失われ、次の start() がラップ済み関数を「元の関数」として扱って二重にラップ
+    // してしまう。末尾から見て splice するのは、走査中のインデックスを崩さないため
+    for (let i = wraps.length - 1; i >= 0; i--) {
+        const { target, method, original, descriptor } = wraps[i];
         try {
-            target[method] = original;
+            if (descriptor) Object.defineProperty(target, method, descriptor);
+            else target[method] = original;
+            wraps.splice(i, 1);
         } catch (e) {
             console.error(`[LocalNicknames] ${method} の復元に失敗しました`, e);
         }
