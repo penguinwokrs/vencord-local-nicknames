@@ -52,3 +52,55 @@ export function sortedEntries(map: NicknameMap | undefined): Array<{ userId: str
         }))
         .sort((a, b) => a.label.localeCompare(b.label));
 }
+
+/**
+ * source の全エントリを新しいプレーンオブジェクトとして組み直す。
+ * SettingsStore の Proxy を経由した値がそのまま持ち越されないよう、
+ * 各エントリを { nickname, label } のオブジェクトリテラルとして再構築する。
+ * 壊れた形のエントリ（nickname が非空白の文字列でない）は除外する。
+ */
+function rebuildAsPlainMap(source: NicknameMap | undefined): NicknameMap {
+    const next: NicknameMap = {};
+    if (!source) return next;
+
+    for (const [userId, entry] of Object.entries(source)) {
+        if (!entry || typeof entry.nickname !== "string") continue;
+
+        const trimmed = entry.nickname.trim();
+        if (trimmed.length === 0) continue;
+
+        next[userId] = {
+            nickname: trimmed,
+            label: typeof entry.label === "string" && entry.label.length > 0 ? entry.label : userId
+        };
+    }
+
+    return next;
+}
+
+/**
+ * userId のニックネームを追加・上書きした新しいマップを返す。
+ * 元の map は変更しない。全エントリをプレーンオブジェクトとして再構築するため、
+ * 元の値が（SettingsStore の Proxy のような）非プレーンなオブジェクトでも、
+ * 返り値は structured clone 可能なプレーンデータのみになる。
+ * nickname が空欄・空白のみの場合はそのエントリを含めない。
+ */
+export function withNickname(map: NicknameMap | undefined, userId: string, nickname: string, label: string): NicknameMap {
+    const next = rebuildAsPlainMap(map);
+
+    const trimmed = nickname.trim();
+    if (trimmed.length === 0) delete next[userId];
+    else next[userId] = { nickname: trimmed, label };
+
+    return next;
+}
+
+/**
+ * userId のニックネームを削除した新しいマップを返す。元の map は変更しない。
+ * withNickname と同様、全エントリをプレーンオブジェクトとして再構築する。
+ */
+export function withoutNickname(map: NicknameMap | undefined, userId: string): NicknameMap {
+    const next = rebuildAsPlainMap(map);
+    delete next[userId];
+    return next;
+}

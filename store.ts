@@ -8,7 +8,7 @@ import { definePluginSettings } from "@api/Settings";
 import { OptionType } from "@utils/types";
 import { FluxDispatcher, UserStore } from "@webpack/common";
 
-import { lookupNickname, NicknameMap, normalizeNickname } from "./nickname";
+import { lookupNickname, NicknameMap, withNickname, withoutNickname } from "./nickname";
 
 export const settings = definePluginSettings({
     nicknames: {
@@ -21,8 +21,9 @@ export const settings = definePluginSettings({
 /**
  * nicknames マップのキャッシュ。settings.store は触るたびに新しい Proxy を組み立てる
  * ため、毎回 settings.store.nicknames を辿ると描画のたびに複数の Proxy を無駄に生成
- * する（設計 §5.3）。一度取得した参照を使い回し、書き込み（setNickname/clearNickname）
- * があったときだけ無効化する。
+ * する（設計 §5.3）。そのため読み取りには `settings.plain.nicknames`（Proxy を経由
+ * しない生のオブジェクト）を使い、一度取得した参照を使い回して、書き込み
+ * （setNickname/clearNickname）があったときだけ無効化する。
  *
  * このキャッシュが古くなりうる窓が一つだけある。設定インポート（`importSettings` /
  * `src/api/SettingsSync/offline.ts`）とクラウド同期のダウンロードは、いずれも
@@ -38,7 +39,7 @@ export const settings = definePluginSettings({
 let cachedNicknames: NicknameMap | undefined;
 
 function getNicknameMap(): NicknameMap {
-    if (cachedNicknames === undefined) cachedNicknames = settings.store.nicknames;
+    if (cachedNicknames === undefined) cachedNicknames = settings.plain.nicknames;
     return cachedNicknames;
 }
 
@@ -70,11 +71,12 @@ export function getNickname(userId: string | undefined): string | null {
  * label には保存時点で見えていた元の表示名を渡す。
  */
 export function setNickname(userId: string, input: string, label: string): void {
-    const nickname = normalizeNickname(input);
-    const next: NicknameMap = { ...settings.store.nicknames };
-
-    if (nickname === null) delete next[userId];
-    else next[userId] = { nickname, label };
+    // source は settings.plain（Proxy を経由しない生のオブジェクト）。settings.store
+    // から読むと各エントリが SettingsStore の get トラップで Proxy にラップされ、
+    // withNickname が組み直した先のマップにその Proxy が値として紛れ込むと、
+    // 後続の VencordNative.settings.set（structured clone）が
+    // 「An object could not be cloned」で例外を投げてしまう
+    const next = withNickname(settings.plain.nicknames, userId, input, label);
 
     // settings.store への代入は同期的にリスナーへ通知する。対象オブジェクトは
     // 代入前の時点で既に更新済みなので、リスナーが同期的に再描画して
@@ -86,8 +88,8 @@ export function setNickname(userId: string, input: string, label: string): void 
 
 /** ニックネームを解除する。 */
 export function clearNickname(userId: string): void {
-    const next: NicknameMap = { ...settings.store.nicknames };
-    delete next[userId];
+    // source を settings.plain にする理由は setNickname と同じ
+    const next = withoutNickname(settings.plain.nicknames, userId);
 
     // 理由は setNickname と同じ（代入前に無効化して同期リスナーからの読み直しに備える）
     invalidateNicknameCache();
