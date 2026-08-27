@@ -2,9 +2,9 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export VENCORD_DIR="${VENCORD_DIR:-$HOME/projects/github.com/Vendicated/Vencord}"
+export EQUICORD_DIR="${EQUICORD_DIR:-$HOME/projects/github.com/Equicord/Equicord}"
 
 "$HERE/gen-tsconfig.sh"
 
-cd "$VENCORD_DIR"
+cd "$EQUICORD_DIR"
 pnpm build --standalone --disable-updater

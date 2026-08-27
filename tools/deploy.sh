@@ -1,22 +1,34 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VENCORD_DIR="${VENCORD_DIR:-$HOME/projects/github.com/Vendicated/Vencord}"
-DEPLOY_DIR="${DEPLOY_DIR:-/mnt/c/Users/owner/VencordCustom}"
+EQUICORD_DIR="${EQUICORD_DIR:-$HOME/projects/github.com/Equicord/Equicord}"
+DEPLOY_DIR="${DEPLOY_DIR:-/mnt/c/Users/owner/EquicordCustom}"
 
-FILES=(vencordDesktopMain.js vencordDesktopPreload.js vencordDesktopRenderer.js vencordDesktopRenderer.css)
+SRC_DIR="$EQUICORD_DIR/dist/equibop"
+FILES=(main.js renderer.js preload.js package.json)
 
-mkdir -p "$DEPLOY_DIR"
-
+MISSING=()
 for f in "${FILES[@]}"; do
-    if [ ! -f "$VENCORD_DIR/dist/$f" ]; then
-        echo "missing: dist/$f  (run tools/build.sh first)" >&2
-        exit 1
+    if [ ! -f "$SRC_DIR/$f" ]; then
+        MISSING+=("$f")
     fi
-    cp "$VENCORD_DIR/dist/$f" "$DEPLOY_DIR/$f"
 done
 
-# Vesktop の isValidVencordInstall が package.json の存在も検査する
-printf '{}' > "$DEPLOY_DIR/package.json"
+if [ ! -d "$SRC_DIR" ] || [ "${#MISSING[@]}" -ne 0 ]; then
+    echo "missing: ${SRC_DIR} に必要なファイルがありません (${MISSING[*]:-ディレクトリ自体が無い})  (先に tools/build.sh を実行してください)" >&2
+    exit 1
+fi
 
-echo "deployed to $DEPLOY_DIR"
+DEST_DIR="$DEPLOY_DIR/equibop"
+
+# 前回の成果物 (リネーム/削除されたファイル) が残らないよう、コピー前に
+# 配置先を丸ごと消してから作り直す。
+rm -rf "$DEST_DIR"
+mkdir -p "$DEST_DIR"
+
+cp -a "$SRC_DIR/." "$DEST_DIR/"
+
+echo "deployed: $SRC_DIR -> $DEST_DIR"
+echo
+echo "Equibop の設定では、この equibop/ の親ディレクトリ (=$DEPLOY_DIR) を"
+echo "Equicord の場所として選択してください ($DEST_DIR ではありません)。"

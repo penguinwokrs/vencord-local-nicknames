@@ -3,28 +3,28 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_DIR="$(cd "$HERE/.." && pwd)"
-export VENCORD_DIR="${VENCORD_DIR:-$HOME/projects/github.com/Vendicated/Vencord}"
+export EQUICORD_DIR="${EQUICORD_DIR:-$HOME/projects/github.com/Equicord/Equicord}"
 LINK_NAME="$(basename "$PLUGIN_DIR")"
 
-if [ ! -d "$VENCORD_DIR/.git" ]; then
-    mkdir -p "$(dirname "$VENCORD_DIR")"
-    git clone https://github.com/Vendicated/Vencord.git "$VENCORD_DIR"
+if [ ! -d "$EQUICORD_DIR/.git" ]; then
+    mkdir -p "$(dirname "$EQUICORD_DIR")"
+    git clone https://github.com/Equicord/Equicord.git "$EQUICORD_DIR"
 fi
 
 # tools/update.sh が git pull できるよう、浅いクローンなら深くしておく
-if [ -f "$VENCORD_DIR/.git/shallow" ]; then
-    git -C "$VENCORD_DIR" fetch --unshallow
+if [ -f "$EQUICORD_DIR/.git/shallow" ]; then
+    git -C "$EQUICORD_DIR" fetch --unshallow
 fi
 
-cd "$VENCORD_DIR"
+cd "$EQUICORD_DIR"
 corepack enable >/dev/null || true
 pnpm install --frozen-lockfile
 
-mkdir -p "$VENCORD_DIR/src/userplugins"
-ln -sfn "$PLUGIN_DIR" "$VENCORD_DIR/src/userplugins/$LINK_NAME"
+mkdir -p "$EQUICORD_DIR/src/userplugins"
+ln -sfn "$PLUGIN_DIR" "$EQUICORD_DIR/src/userplugins/$LINK_NAME"
 
 "$HERE/gen-tsconfig.sh"
 
 echo "setup complete"
-echo "  Vencord : $VENCORD_DIR"
-echo "  linked  : src/userplugins/$LINK_NAME -> $PLUGIN_DIR"
+echo "  Equicord : $EQUICORD_DIR"
+echo "  linked   : src/userplugins/$LINK_NAME -> $PLUGIN_DIR"

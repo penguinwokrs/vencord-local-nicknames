@@ -2,10 +2,10 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VENCORD_DIR="${VENCORD_DIR:-$HOME/projects/github.com/Vendicated/Vencord}"
+EQUICORD_DIR="${EQUICORD_DIR:-$HOME/projects/github.com/Equicord/Equicord}"
 
-git -C "$VENCORD_DIR" pull --ff-only
-(cd "$VENCORD_DIR" && pnpm install --frozen-lockfile)
+git -C "$EQUICORD_DIR" pull --ff-only
+(cd "$EQUICORD_DIR" && pnpm install --frozen-lockfile)
 
 "$HERE/build.sh"
 "$HERE/deploy.sh"
