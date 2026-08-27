@@ -1,6 +1,6 @@
 # LocalNicknames
 
-Discord の他ユーザーに、**自分のクライアント内でのみ有効なニックネーム**を付ける Vencord UserPlugin です。
+Discord の他ユーザーに、**自分のクライアント内でのみ有効なニックネーム**を付ける Equicord UserPlugin です。
 
 付けたニックネームは、そのユーザーが所属するサーバーを問わず常に同じ表示名として使われます。
 サーバー API は一切使いません。ニックネームは他人には見えず、Discord のサーバーにも送信されません
@@ -23,22 +23,24 @@ Discord の他ユーザーに、**自分のクライアント内でのみ有効�
 
 ## 導入
 
-Vencord にはランタイムのプラグイン読み込み機構が無いため、プラグインを含んだ
-Vencord を自分でビルドし、Vesktop にそれを読ませます。
+Equicord にはランタイムのプラグイン読み込み機構が無いため、プラグインを含んだ
+Equicord を自分でビルドし、Equibop にそれを読ませます。
 
 ```bash
-./tools/setup.sh     # Vencord を clone し、依存を入れ、src/userplugins/ にリンクを張る
-./tools/build.sh     # Vencord をビルドする
-./tools/deploy.sh    # 成果物を /mnt/c/Users/owner/VencordCustom へ配置する
+./tools/setup.sh     # Equicord を clone し、依存を入れ、src/userplugins/ にリンクを張る
+./tools/build.sh     # Equicord をビルドする
+./tools/deploy.sh    # 成果物を /mnt/c/Users/owner/EquicordCustom へ配置する
 ```
 
-その後 Vesktop の 設定 → **Vencord Location** で `C:\Users\owner\VencordCustom` を指定し、
-Vesktop を再起動します。この指定は最初の一度だけで済みます。
+その後 Equibop の 設定 → **Equicord の場所**（Equicord Location）で `C:\Users\owner\EquicordCustom`
+を指定し、Equibop を再起動します。この指定は最初の一度だけで済みます。
+（`EquicordCustom` の中に生成される `equibop\` フォルダそのものではなく、その親フォルダを
+指定してください。）
 
 クローン先と配置先は環境変数で変えられます。
 
 ```bash
-VENCORD_DIR=/path/to/Vencord DEPLOY_DIR=/mnt/c/Users/you/VencordCustom ./tools/deploy.sh
+EQUICORD_DIR=/path/to/Equicord DEPLOY_DIR=/mnt/c/Users/you/EquicordCustom ./tools/deploy.sh
 ```
 
 ### `tools/gen-tsconfig.sh` について
@@ -46,28 +48,30 @@ VENCORD_DIR=/path/to/Vencord DEPLOY_DIR=/mnt/c/Users/you/VencordCustom ./tools/d
 リポジトリ直下に生成される `tsconfig.json` は生成物で、`.gitignore` 済みです。
 手元に現れても手で編集したりコミットしたりしないでください。
 
-必要になる理由は Vencord 側のビルド方式にあります。Vencord の esbuild ビルドは、
+必要になる理由は Equicord 側のビルド方式にあります。Equicord の esbuild ビルドは、
 各ソースファイルの symlink 解決後の実パスから上位ディレクトリへ辿って
-`tsconfig.json` を探索します。このリポジトリは Vencord のツリーの外から
+`tsconfig.json` を探索します。このリポジトリは Equicord のツリーの外から
 `src/userplugins/` へシンボリックリンクされているだけなので、その探索は
-Vencord 本体の `tsconfig.json`（`@utils/*` などのパスエイリアスの定義元）まで
-辿り着けません。そこで `tools/gen-tsconfig.sh` が、Vencord の実際のパスエイリアスを
+Equicord 本体の `tsconfig.json`（`@utils/*` などのパスエイリアスの定義元）まで
+辿り着けません。そこで `tools/gen-tsconfig.sh` が、Equicord の実際のパスエイリアスを
 指すこのリポジトリ用の `tsconfig.json` をルートに生成し、探索を打ち切らせます。
 
 `tools/setup.sh` と `tools/build.sh` の両方が内部で自動的に呼び出すため、
 通常は手動で実行する必要はありません。
 
-既知の制約として、このスクリプトは Vencord のパスエイリアス一覧をハードコードして
-ミラーしています。Vencord 本体でエイリアスが追加・改名されると追従できず、その場合は
-esbuild が `Could not resolve '@some/alias'` のようなエラーを出します。
+既知の制約として、このスクリプトは Equicord のパスエイリアス一覧をハードコードして
+ミラーしています（現時点で14個。Vencord 由来の13個に、Equicord 独自の
+`@equicordplugins/*` が加わったもの）。Equicord 本体でエイリアスが追加・改名されると
+追従できず、その場合は esbuild が `Could not resolve '@some/alias'` のようなエラーを
+出します。
 
 ## 更新
 
-Vencord Location を既定から変更すると、Vesktop 側での Vencord の自動取得は行われなくなります。
+Equicord の場所を既定から変更すると、Equibop 側での Equicord の自動取得は行われなくなります。
 更新は次のコマンドで行ってください。
 
 ```bash
-./tools/update.sh    # Vencord を pull → 再ビルド → 再配置
+./tools/update.sh    # Equicord を pull → 再ビルド → 再配置
 ```
 
 ## テスト
@@ -78,36 +82,43 @@ Vencord Location を既定から変更すると、Vesktop 側での Vencord の�
 ./tools/test.sh
 ```
 
-Vencord 側の型チェックと lint:
+Equicord 側の型チェックと lint:
 
 ```bash
-cd "$HOME/projects/github.com/Vendicated/Vencord" && pnpm testTsc && pnpm lint
+cd "$HOME/projects/github.com/Equicord/Equicord" && pnpm testTsc && pnpm lint
 ```
 
 ## 既知の制約
 
 - Discord の内部実装が変わると、一部またはすべての画面で効かなくなる可能性があります。
   その場合もクラッシュはせず、DevTools の Console に `[LocalNicknames]` の警告が出ます。
-- Vencord の SupportHelper は UserPlugin が入っていると診断情報に `Has UserPlugins` を出します。
-  これは仕様どおりの挙動で、公式サポートの対象外であることを示します。
+- Equicord にも Vencord 由来の `SupportHelper` プラグインがそのまま存在し、UserPlugin が
+  入っていると診断情報に `Has UserPlugins` を出します。これは仕様どおりの挙動で、公式サポート
+  の対象外であることを示します（Equicord 独自の `EquicordHelper` プラグインは、これとは別に
+  Equicord のサポート導線を提供するもので、UserPlugin の有無は報告しません）。
 - 検索やメンション入力の補完でもニックネームが表示されます。表示のみで、
   サーバーに送信される内容は変わりません。
-- `ShowMeYourName` と併用した場合、条件が揃えばメッセージヘッダにニックネームと
-  元のユーザー名が併記されます。ShowMeYourName 側の `mode` 設定が既定の `user-nick`
-  なら「ユーザー名 + ニックネーム」、`nick-user` なら「ニックネーム + ユーザー名」の
-  順になりますが、`mode` が `user`（ユーザー名のみ）の場合はニックネームはそもそも
-  表示されません。また、ユーザー名とニックネームが大文字小文字を無視して一致する
-  場合は1つの名前にまとめられます。さらに、この併記自体が本プラグインで置き換えた
+- `ShowMeYourName` は Equicord にも同梱されていますが、Vencord 版とは設定の作りが
+  大きく異なります。Vencord 版にあった単一の `mode`（`user-nick` / `nick-user` / `user`）
+  という3択のスイッチは無く、代わりに表示箇所ごとの真偽値トグルと、`includedNames` /
+  `nameSeparator` によるカスタム名テンプレートの組み合わせになっています。そのため、
+  「既定でユーザー名+ニックネームが併記される」といった Vencord 版基準の挙動はそのままは
+  成り立たず、本プラグインとの併記のされ方（ニックネームと元のユーザー名がどう組み合わさるか）
+  は Equicord 版の設定内容に依存します。この併記自体は本プラグインで置き換えた
   `GuildMemberStore.getNick` からメッセージヘッダの `author.nick` が正しく計算される
-  ことに依存しており、これは実機では未確認です。いずれにしても、どちらのプラグインも
-  クラッシュはしません。
-- Vencord の Cloud Settings Sync を有効にしている場合、`plugins.LocalNicknames.nicknames`
-  を含む設定一式が、設定済みの Vencord クラウドバックエンドへアップロードされます。
+  ことに依存しており、Equicord 版との組み合わせは実機で未検証です。いずれにしても、
+  どちらのプラグインもクラッシュはしません。実際の見え方は後述の実機検証チェックリスト
+  の項目11で確認してください。
+- Equicord の Cloud Settings Sync を有効にしている場合、`plugins.LocalNicknames.nicknames`
+  を含む設定一式が、設定済みの Equicord クラウドバックエンドへアップロードされます。
   Discord のサーバーではありませんが、対象ユーザーの ID と付けた名前がそこへ送られる
   ことにはなるため、プライバシーを重視するなら Cloud Settings Sync の利用先を
   把握した上で有効にしてください。
-- Vencord 本体へのコントリビュートはできません。Vencord の `CONTRIBUTING.md` は
-  AI が書いたコードの PR を禁止しています。本プラグインはローカル専用として運用します。
+- Equicord 本体への通常のコントリビュートは想定していません。Equicord の
+  `CONTRIBUTING.md` は「AI アシスト（インライン補完程度）は許容するが、PR は大部分が
+  人間の手によるものであること」「AI で PR の説明や README を生成しないこと」を求めており、
+  本プラグインの開発の仕方はこの基準を満たしません。本プラグインはローカル専用として
+  運用します。
 - フレンドや他メンバーの「ニックネームを編集」「ニックネームの変更」ダイアログでのローカルニックネーム送信リスク：
   本プラグインが `GuildMemberStore.getNick` と `RelationshipStore.getNickname` を置き換えることで、
   Discord の組み込みニックネーム編集ダイアログの入力欄がローカルニックネームでプリフィルされ、
@@ -121,8 +132,8 @@ cd "$HOME/projects/github.com/Vendicated/Vencord" && pnpm testTsc && pnpm lint
 
 ## 実機検証チェックリスト
 
-自動テストではカバーできない部分を、実際に Vesktop 上で確認するためのチェック
-リストです。ビルド・配置後、Vesktop を再起動してから確認してください。
+自動テストではカバーできない部分を、実際に Equibop 上で確認するためのチェック
+リストです。ビルド・配置後、Equibop を再起動してから確認してください。
 
 1. 右クリックメニューに項目が出る（メンバーリスト、メッセージ、DM リスト、
    プロフィールの4か所すべて）
@@ -136,7 +147,7 @@ cd "$HOME/projects/github.com/Vendicated/Vencord" && pnpm testTsc && pnpm lint
 8. 自分自身には項目が出ない。自分のサーバープロフィール編集画面のニックネーム欄
    が書き換わっていない
 9. 設定画面に一覧が出て、削除ボタンが効く
-10. Vesktop を再起動しても設定が残っている
+10. Equibop を再起動しても設定が残っている
 11. `ShowMeYourName` との併記表示が壊れていない
 12. フレンドに1件ニックネームを付けてから、そのフレンドのプロフィール → 「ニックネームを編集」を開き、
     入力欄に何が入っているかを確認する（**保存は押さないこと**）
