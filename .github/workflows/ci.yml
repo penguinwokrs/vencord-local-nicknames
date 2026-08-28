@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# 同じブランチで新しい push があれば古い実行は止める
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    name: Unit tests (pure logic)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # tools/test.sh は node --experimental-strip-types を使うため 22.6 以上が要る
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run unit tests
+        run: ./tools/test.sh
+
+  build:
+    name: Type check, lint and build against Equicord
+    runs-on: ubuntu-latest
+    env:
+      EQUICORD_DIR: ${{ github.workspace }}/.equicord
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      # Equicord を clone し、依存を入れ、このリポジトリを src/userplugins/ へリンクする
+      - name: Set up Equicord
+        run: ./tools/setup.sh
+
+      - name: Type check
+        working-directory: ${{ env.EQUICORD_DIR }}
+        run: pnpm testTsc
+
+      - name: Lint
+        working-directory: ${{ env.EQUICORD_DIR }}
+        run: pnpm lint
+
+      - name: Build
+        run: ./tools/build.sh
+
+      # 「ビルドが通った」は何も保証しない。プラグインのコードが実際に
+      # バンドルへ入っていることまで確認する (README の教訓を参照)
+      - name: Verify the plugin is actually in the bundle
+        run: |
+          BUNDLE="$EQUICORD_DIR/dist/equibop/renderer.js"
+          test -f "$BUNDLE" || { echo "renderer.js が生成されていません"; exit 1; }
+          for needle in 'name:"LocalNicknames"' 'renderProfileSection' 'ProfileSectionsAPI'; do
+              grep -qF -- "$needle" "$BUNDLE" || { echo "バンドルに $needle が見つかりません"; exit 1; }
+          done
+          echo "バンドルにプラグインが含まれていることを確認しました"
