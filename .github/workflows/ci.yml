@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# 同じブランチで新しい push があれば古い実行は止める
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    name: Unit tests (pure logic)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # tools/test.sh は node --experimental-strip-types を使うため 22.6 以上が要る
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run unit tests
+        run: ./tools/test.sh
+
+  build:
+    name: Type check, lint and build against Equicord
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Equicord はプラグインリポジトリの「外」へ clone する。リポジトリ直下に
+      # 置くと Equicord がプラグインリポジトリの内側に入れ子になり、さらにその
+      # src/userplugins/ からリポジトリ自身へリンクが張られる構造になる。この
+      # 配置ではビルド時にパスエイリアスが1つも解決できない
+      - name: Set EQUICORD_DIR
+        run: echo "EQUICORD_DIR=$RUNNER_TEMP/equicord" >> "$GITHUB_ENV"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      # Equicord を clone し、依存を入れ、このリポジトリを src/userplugins/ へリンクする
+      - name: Set up Equicord
+        run: ./tools/setup.sh
+
+      # 次に同種の問題が起きたとき、推測ではなく現物で判断できるようにしておく
+      - name: Show generated tsconfig and link layout
+        run: |
+          echo "--- PWD ---"; pwd
+          echo "--- EQUICORD_DIR ---"; echo "$EQUICORD_DIR"
+          echo "--- tsconfig.json ---"; cat tsconfig.json
+          echo "--- src/userplugins ---"; ls -la "$EQUICORD_DIR/src/userplugins/"
+
+      - name: Type check
+        run: cd "$EQUICORD_DIR" && pnpm testTsc
+
+      - name: Lint
+        run: cd "$EQUICORD_DIR" && pnpm lint
+
+      - name: Build
+        run: ./tools/build.sh
+
+      # 「ビルドが通った」は何も保証しない。プラグインのコードが実際に
+      # バンドルへ入っていることまで確認する (README の教訓を参照)
+      - name: Verify the plugin is actually in the bundle
+        run: |
+          BUNDLE="$EQUICORD_DIR/dist/equibop/renderer.js"
+          test -f "$BUNDLE" || { echo "renderer.js が生成されていません"; exit 1; }
+          for needle in 'name:"LocalNicknames"' 'renderProfileSection' 'ProfileSectionsAPI'; do
+              grep -qF -- "$needle" "$BUNDLE" || { echo "バンドルに $needle が見つかりません"; exit 1; }
+          done
+          echo "バンドルにプラグインが含まれていることを確認しました"

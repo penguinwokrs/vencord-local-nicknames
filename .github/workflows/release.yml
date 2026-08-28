@@ -1,0 +1,28 @@
+name: Release
+
+# バージョンはタグで管理する。v1.0.0 のようなタグを push すると
+# リリースノートを自動生成した GitHub Release が作られる
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    name: Create release with generated notes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --generate-notes \
+              --verify-tag
