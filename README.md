@@ -1,191 +1,269 @@
 # LocalNicknames
 
-Discord の他ユーザーに、**自分のクライアント内でのみ有効なニックネーム**を付ける Equicord UserPlugin です。
+日本語版は [README.ja.md](README.ja.md) にあります。
 
-付けたニックネームは、そのユーザーが所属するサーバーを問わず常に同じ表示名として使われます。
-サーバー API は一切使いません。ニックネームは他人には見えず、Discord のサーバーにも送信されません
-（ただし Discord 組み込みのニックネーム編集ダイアログ経由の例外があります。詳しくは後述の既知の制約を参照してください）。
+An [Equicord](https://github.com/Equicord/Equicord) UserPlugin that lets you give other
+Discord users a nickname that exists **only inside your own client**.
 
-## 使い方
+The nickname you set is used as that user's display name everywhere, no matter which
+server you are looking at them in. No server API is involved: the nickname is invisible
+to everyone else and is never sent to Discord (with one exception, via Discord's own
+nickname dialog — see [Known limitations](#known-limitations)).
 
-ユーザーを右クリック → `ニックネームを付ける` → 入力して `OK`。
+> The plugin's user interface is in Japanese.
 
-解除するには、右クリック → `ニックネームを解除`、
-またはモーダルの入力欄を空欄のまま `OK` を押します。
+## How it works
 
-保存済みの一覧は 設定 → Plugins → LocalNicknames の歯車から見られます。
+The plugin applies **no webpack patches of its own.** It wraps six functions at runtime
+and substitutes the nickname on the way out:
 
-## 表示の優先順位
+| Wrapped function | Surfaces it covers |
+| --- | --- |
+| `UsernameUtils.getName` | DMs, profiles, friends list |
+| `UsernameUtils.useName` | The same, via the hook path |
+| `GuildMemberStore.getNick` | Some guild surfaces |
+| `RelationshipStore.getNickname` | The friend-nickname path |
+| `GuildMemberStore.getMember` | Guild surfaces in general — Discord reads this, not `getNick` |
+| `GuildMemberStore.getMembers` | The `@`-mention autocomplete candidate list |
+
+`GuildMemberStore.getTrueMember` is deliberately **not** wrapped; see
+[Known limitations](#known-limitations).
+
+Avoiding webpack patches is the point: patches break whenever Discord's internals shift,
+and every one of them is a maintenance liability.
+
+## Usage
+
+Right-click a user → `ニックネームを付ける` (set a nickname) → type it → `OK`.
+
+For a user who has no nickname yet, the input is **pre-filled with their original display
+name**, so you can edit it instead of retyping it.
+
+To remove a nickname, right-click → `ニックネームを解除` (clear), or leave the input empty
+and press `OK`.
+
+The profile of a user with a nickname gains a `ローカルニックネーム` section listing
+`元の名前` (original name) and `ニックネーム` (nickname). Setting a nickname otherwise hides
+the original name completely, so this is where you can check it. It appears both in the
+DM sidebar profile and in the profile modal.
+
+The saved list lives under Settings → Plugins → LocalNicknames → the gear icon.
+
+## Name resolution priority
 
 ```
-ローカルニックネーム > サーバーニックネーム > フレンドニックネーム > 表示名 > ユーザー名
+local nickname > server nickname > friend nickname > display name > username
 ```
 
-## 変更の即時反映
+## Live updates
 
-ニックネームを付けた・解除した直後、リロードせずにメッセージヘッダ、DM リスト、
-フレンド一覧、プロフィールなどの表示が変わります（メンバーリストは例外です。
-詳しくは後述の既知の制約を参照してください）。裏では、読み取りを横取りしている
-`GuildMemberStore` / `RelationshipStore` / `UserStore` それぞれの `emitChange()` を
-呼んで、購読しているコンポーネントへ「読み直して」と伝えているだけです。実データ
-には一切触れず、Discord のサーバーへは何も送信されません。
+Setting or clearing a nickname updates message headers, the DM list, the friends list and
+profiles immediately, without a reload. (The member list is the exception — see
+[Known limitations](#known-limitations).)
 
-## 導入
+Under the hood this only calls `emitChange()` on the three stores whose reads are
+intercepted (`GuildMemberStore`, `RelationshipStore` and `UserStore`), telling subscribed
+components to read again. No real data is touched, and nothing is sent to Discord.
 
-Equicord にはランタイムのプラグイン読み込み機構が無いため、プラグインを含んだ
-Equicord を自分でビルドし、Equibop にそれを読ませます。
+## Installation
+
+Equicord has no runtime plugin loader, so you build an Equicord that contains this plugin
+and point Equibop at the result.
 
 ```bash
-./tools/setup.sh     # Equicord を clone し、依存を入れ、src/userplugins/ にリンクを張る
-./tools/build.sh     # Equicord をビルドする
-./tools/deploy.sh    # 成果物を /mnt/c/Users/owner/EquicordCustom へ配置する
+./tools/setup.sh     # clone Equicord, install deps, link this repo into src/userplugins/
+./tools/build.sh     # build Equicord
+./tools/deploy.sh    # copy the output to /mnt/c/Users/owner/EquicordCustom
 ```
 
-その後 Equibop の 設定 → **Equicord の場所**（Equicord Location）で `C:\Users\owner\EquicordCustom`
-を指定し、Equibop を再起動します。この指定は最初の一度だけで済みます。
-（`EquicordCustom` の中に生成される `equibop\` フォルダそのものではなく、その親フォルダを
-指定してください。）
+Then, in Equibop, set Settings → **Equicord Location** to `C:\Users\owner\EquicordCustom`
+and restart Equibop. You only need to do this once.
 
-クローン先と配置先は環境変数で変えられます。
+Point it at the folder that *contains* the generated `equibop\` folder, not at `equibop\`
+itself.
+
+Both the clone directory and the deploy directory can be overridden:
 
 ```bash
 EQUICORD_DIR=/path/to/Equicord DEPLOY_DIR=/mnt/c/Users/you/EquicordCustom ./tools/deploy.sh
 ```
 
-### `tools/gen-tsconfig.sh` について
+### About `tools/gen-tsconfig.sh`
 
-リポジトリ直下に生成される `tsconfig.json` は生成物で、`.gitignore` 済みです。
-手元に現れても手で編集したりコミットしたりしないでください。
+The `tsconfig.json` at the repository root is generated and git-ignored. Do not edit or
+commit it if you see it.
 
-必要になる理由は Equicord 側のビルド方式にあります。Equicord の esbuild ビルドは、
-各ソースファイルの symlink 解決後の実パスから上位ディレクトリへ辿って
-`tsconfig.json` を探索します。このリポジトリは Equicord のツリーの外から
-`src/userplugins/` へシンボリックリンクされているだけなので、その探索は
-Equicord 本体の `tsconfig.json`（`@utils/*` などのパスエイリアスの定義元）まで
-辿り着けません。そこで `tools/gen-tsconfig.sh` が、Equicord の実際のパスエイリアスを
-指すこのリポジトリ用の `tsconfig.json` をルートに生成し、探索を打ち切らせます。
+It exists because of how Equicord builds. Equicord's esbuild resolves each source file to
+its real path (following symlinks) and then walks *up* from there looking for a
+`tsconfig.json`. This repository is only symlinked into `src/userplugins/` from outside
+Equicord's tree, so that walk never reaches Equicord's own `tsconfig.json` — the file that
+defines path aliases such as `@utils/*`. `tools/gen-tsconfig.sh` generates a
+`tsconfig.json` at this repository's root that points at Equicord's real aliases, which
+ends the search at the right place.
 
-`tools/setup.sh` と `tools/build.sh` の両方が内部で自動的に呼び出すため、
-通常は手動で実行する必要はありません。
+Both `tools/setup.sh` and `tools/build.sh` call it automatically, so you normally never
+run it yourself.
 
-既知の制約として、このスクリプトは Equicord のパスエイリアス一覧をハードコードして
-ミラーしています（現時点で14個。Vencord 由来の13個に、Equicord 独自の
-`@equicordplugins/*` が加わったもの）。Equicord 本体でエイリアスが追加・改名されると
-追従できず、その場合は esbuild が `Could not resolve '@some/alias'` のようなエラーを
-出します。
+One known limitation: the script hard-codes a mirrored copy of Equicord's path alias list
+(currently 14 — the 13 inherited from Vencord plus Equicord's own `@equicordplugins/*`).
+If Equicord adds or renames an alias, this will not follow, and esbuild will fail with
+something like `Could not resolve '@some/alias'`.
 
-## 更新
+## Updating
 
-Equicord の場所を既定から変更すると、Equibop 側での Equicord の自動取得は行われなくなります。
-更新は次のコマンドで行ってください。
+Once you change the Equicord location away from the default, Equibop stops fetching
+Equicord for you. Update with:
 
 ```bash
-./tools/update.sh    # Equicord を pull → 再ビルド → 再配置
+./tools/update.sh    # pull Equicord, rebuild, redeploy
 ```
 
-## テスト
+## Tests
 
-純粋ロジックのみ自動テストがあります。
+Only the pure logic is covered by automated tests.
 
 ```bash
 ./tools/test.sh
 ```
 
-Equicord 側の型チェックと lint:
+Type checking and linting run on the Equicord side:
 
 ```bash
 cd "$HOME/projects/github.com/Equicord/Equicord" && pnpm testTsc && pnpm lint
 ```
 
-## 既知の制約
+## Continuous integration
 
-- Discord の内部実装が変わると、一部またはすべての画面で効かなくなる可能性があります。
-  その場合もクラッシュはせず、DevTools の Console に `[LocalNicknames]` の警告が出ます。
-- Equicord にも Vencord 由来の `SupportHelper` プラグインがそのまま存在し、UserPlugin が
-  入っていると診断情報に `Has UserPlugins` を出します。これは仕様どおりの挙動で、公式サポート
-  の対象外であることを示します（Equicord 独自の `EquicordHelper` プラグインは、これとは別に
-  Equicord のサポート導線を提供するもので、UserPlugin の有無は報告しません）。
-- メンバーリスト（右側）だけは、ニックネームを付けた・解除した直後は反映されません。
-  他の画面（メッセージ、DM、フレンド一覧、プロフィールなど）は即時反映されますが、
-  メンバーリストは対象ユーザーが古い表示のままになります。別のチャンネルへ切り替える
-  か Ctrl+R でリロードすると正しい表示になります（詳しい原因は設計書を参照）。
-- @ メンション入力の候補は、ローカルニックネームでは検索できません。実名を入力すれば
-  候補に出るため、メンションそのものは可能です。ニックネームで探したい場合は実名を
-  使ってください。
-- `ShowMeYourName` は Equicord にも同梱されていますが、Vencord 版とは設定の作りが
-  大きく異なります。Vencord 版にあった単一の `mode`（`user-nick` / `nick-user` / `user`）
-  という3択のスイッチは無く、代わりに表示箇所ごとの真偽値トグルと、`includedNames` /
-  `nameSeparator` によるカスタム名テンプレートの組み合わせになっています。そのため、
-  「既定でユーザー名+ニックネームが併記される」といった Vencord 版基準の挙動はそのままは
-  成り立たず、本プラグインとの併記のされ方（ニックネームと元のユーザー名がどう組み合わさるか）
-  は Equicord 版の設定内容に依存します。この併記自体は本プラグインで置き換えた
-  `GuildMemberStore.getNick` からメッセージヘッダの `author.nick` が正しく計算される
-  ことに依存しており、Equicord 版との組み合わせは実機で未検証です。いずれにしても、
-  どちらのプラグインもクラッシュはしません。実際の見え方は後述の実機検証チェックリスト
-  の項目11で確認してください。
-- Equicord の Cloud Settings Sync を有効にしている場合、`plugins.LocalNicknames.nicknames`
-  を含む設定一式が、設定済みの Equicord クラウドバックエンドへアップロードされます。
-  Discord のサーバーではありませんが、対象ユーザーの ID と付けた名前がそこへ送られる
-  ことにはなるため、プライバシーを重視するなら Cloud Settings Sync の利用先を
-  把握した上で有効にしてください。
-- Equicord 本体への通常のコントリビュートは想定していません。Equicord の
-  `CONTRIBUTING.md` は「AI アシスト（インライン補完程度）は許容するが、PR は大部分が
-  人間の手によるものであること」「AI で PR の説明や README を生成しないこと」を求めており、
-  本プラグインの開発の仕方はこの基準を満たしません。本プラグインはローカル専用として
-  運用します。
-- フレンドや他メンバーの「ニックネームを編集」「ニックネームの変更」ダイアログでのローカルニックネーム送信リスク：
-  本プラグインが `GuildMemberStore.getNick` と `RelationshipStore.getNickname` を置き換えることで、
-  Discord の組み込みニックネーム編集ダイアログの入力欄がローカルニックネームでプリフィルされ、
-  保存するとそのローカルニックネームが実ニックネームとして Discord サーバーに送信される可能性があります。
-  具体的には、フレンドプロフィール → 「ニックネームを編集」で保存した場合はそのフレンドの実ニックネームが、
-  ニックネーム管理権限のあるサーバーのメンバーを右クリック → 「ニックネームの変更」で保存した場合は
-  そのメンバーのサーバーニックネームが上書きされます。ただしダイアログを**開くだけではリスクはなく**、
-  保存して初めて送信されます。なお、入力欄が実際にプリフィルされるかどうかは未確認で、
-  コードの構造から推測したものです。対策として、これらのダイアログで保存する前に
-  入力欄の内容をご確認ください。
+`.github/workflows/ci.yml` runs on every push to `main` and on every pull request:
 
-  なお `GuildMemberStore.getMember`（単数）と `getMembers`（複数、ギルドの全メンバー
-  配列を返す。@ メンションのオートコンプリートが候補元として使っているためラップ
-  対象にしています）もラップ対象ですが、`getTrueMember`（本物の、加工されていない
-  メンバーを返すアクセサで、ニックネーム編集ダイアログの取得元になりうるもの）は
-  意図的にラップしていません。このリスクをこれ以上広げないためです。
+- **Unit tests** — `./tools/test.sh` on Node 22.
+- **Type check, lint and build** — clones Equicord, links this repository into
+  `src/userplugins/`, then runs `pnpm testTsc`, `pnpm lint` and a full build.
+- **Bundle verification** — greps the built `renderer.js` for this plugin's code. A green
+  build proves nothing on its own; this repository has already had a case where type
+  checking, linting, building and deploying all succeeded while the plugin did nothing at
+  all, because the sources were in the wrong directory.
 
-## 実機検証チェックリスト
+## Versioning and releases
 
-自動テストではカバーできない部分を、実際に Equibop 上で確認するためのチェック
-リストです。ビルド・配置後、Equibop を再起動してから確認してください。
+Versions are managed with git tags. Pushing a tag matching `v*` triggers
+`.github/workflows/release.yml`, which creates a GitHub release with **automatically
+generated release notes**. The categories are configured in `.github/release.yml`.
 
-1. 右クリックメニューに項目が出る（メンバーリスト、メッセージ、DM リスト、
-   プロフィールの4か所すべて）
-2. モーダルの OK / キャンセル / Esc / Enter が期待通りに動く
-3. 保存後、リロードせずにメッセージヘッダの表示が変わる（メンバーリストは既知の制約
-   により切り替え・リロードが必要。それ自体を確認する）
-4. 別のサーバーで同じユーザーを見ても同じニックネームが出る（サーバーニック
-   ネームが設定されているユーザーで確認すること）
-5. DM リスト、ボイスチャンネル、メンション、プロフィールでも置き換わる
-6. 空欄で保存すると標準の表示に戻る
-7. メニューの「ニックネームを解除」でも標準の表示に戻る
-8. 自分自身には項目が出ない。自分のサーバープロフィール編集画面のニックネーム欄
-   が書き換わっていない
-9. 設定画面に一覧が出て、削除ボタンが効く
-10. Equibop を再起動しても設定が残っている
-11. `ShowMeYourName` との併記表示が壊れていない
-12. フレンドに1件ニックネームを付けてから、そのフレンドのプロフィール → 「ニックネームを編集」を開き、
-    入力欄に何が入っているかを確認する（**保存は押さないこと**）
-13. ニックネーム管理権限のあるサーバーで、ニックネームを付けたメンバーを右クリック → 「ニックネームの変更」を開き、
-    同様に入力欄を確認する（**保存は押さないこと**）
-14. 設定 → Plugins で LocalNicknames を無効にし、メンバーリスト・メッセージヘッダ・DM リスト・メンション・
-    プロフィールのすべてで名前が Discord 本来の表示に戻ること。Console に `[LocalNicknames]` の復元失敗
-    メッセージが出ていないこと
-15. 再度有効にして、すべての画面でニックネームが戻ること
-16. 上記の無効化→有効化をもう一度繰り返しても同じ結果になること（2周目で初めて表面化する不具合があるため）
+```bash
+git tag -a v1.2.3 -m "v1.2.3"
+git push origin v1.2.3
+```
 
-さらに、以下も確認してください。
+There is no `package.json` in this repository (see the note in the design document about
+why one must not be added), so tags are the single source of truth for the version.
 
-- プラグインを有効にした直後に DevTools（Ctrl+Shift+I）の Console を開き、
-  `[LocalNicknames]` で始まる警告やエラーが出ていないこと。出ている場合は
-  6つの経路のどれが効いていないかがそのメッセージで分かる。
-- モーダルの入力欄に1文字入力し、その文字がそのまま表示されること（入力値の
-  受け渡しが正しいことの確認）。
-- 大きなサーバーのメンバーリストを勢いよくスクロールし、プラグインを無効に
-  したときと比べて描画が重くなっていないこと。
+## Known limitations
+
+- **Discord's internals can change.** If they do, some or all surfaces may stop working.
+  The plugin will not crash; it logs a `[LocalNicknames]` warning to the DevTools console
+  instead.
+- **The member list on the right does not update immediately.** Every other surface does.
+  Switch channels or press Ctrl+R and it will be correct. This is not a missing store
+  notification — sending `emitChange()` to all 506 Flux stores changes nothing. The member
+  list is a virtualised list that computes its row data only when the list is built.
+  Patching the row component would fix it, at the cost of the zero-patch property, so it
+  is deliberately left alone.
+- **Restoring names on disable is not verified on a real client.** `removeNameOverrides`
+  is not covered by unit tests and has never been exercised in practice, so disabling the
+  plugin might leave names overridden, or leave the profile section in place. If that
+  happens, Ctrl+R or a client restart always returns everything to normal, because the
+  modules are re-loaded and the wraps disappear with them. No data is lost and nothing is
+  sent to Discord. One caveat: a nickname saved while in that state can record the wrong
+  "original name", and a reload does not fix that — setting the nickname again does.
+- **`ShowMeYourName` interop is untested.** Equicord ships its own version whose settings
+  differ substantially from the Vencord one: there is no single `mode` switch
+  (`user-nick` / `nick-user` / `user`), but per-surface boolean toggles plus a custom name
+  template built from `includedNames` and `nameSeparator`. So Vencord-era expectations
+  such as "username and nickname are shown together by default" do not carry over, and how
+  the two plugins combine depends on your Equicord settings. The combined display relies
+  on the message header's `author.nick` being derived correctly from the
+  `GuildMemberStore.getNick` this plugin replaces. Neither plugin crashes either way.
+- **Cloud Settings Sync uploads your nicknames.** If you enable Equicord's Cloud Settings
+  Sync, your whole settings blob — including `plugins.LocalNicknames.nicknames` — is
+  uploaded to whichever Equicord cloud backend you configured. That is not Discord, but
+  the user IDs and the names you chose do leave your machine. Know where yours points
+  before enabling it.
+- **Upstream contribution is out of scope.** Equicord's `CONTRIBUTING.md` allows
+  AI assistance at the level of inline completion but requires that pull requests be
+  substantially human-written, and forbids AI-generated PR descriptions and READMEs. This
+  plugin's development does not meet that bar, so it is maintained as a local-only
+  UserPlugin.
+- **Discord's built-in nickname dialogs carry a send risk.** Because this plugin replaces
+  `GuildMemberStore.getNick` and `RelationshipStore.getNickname`, those dialogs could in
+  principle be pre-filled with a local nickname, and saving would send it to Discord as a
+  real nickname — overwriting a friend's real nickname (friend profile → "Edit Nickname")
+  or a member's server nickname (right-click a member with the Manage Nicknames
+  permission → "Change Nickname"). **Opening the dialog is not itself risky**; only saving
+  sends anything.
+
+  Whether the field is actually pre-filled has since been checked on a real client.
+  **In both dialogs the input value stays empty** — verified against a user who did have a
+  local nickname. The **placeholder**, however, does show the local nickname while the
+  plugin is enabled (it shows the real display name when disabled). A placeholder is not a
+  value, so it is never saved and carries no send risk on its own — but it is easy to
+  misread as "the name is already in there". The warning above is about what *you* type
+  and save, and this observation does not retract it. Check the field's contents before
+  saving in either dialog.
+
+  `GuildMemberStore.getMember` and `getMembers` are wrapped as well (the latter because
+  the `@`-mention autocomplete builds its candidate list from it), but `getTrueMember` —
+  the accessor that returns the real, unmodified member, and a plausible source for those
+  dialogs — is deliberately left alone, to avoid widening this risk any further.
+
+## Manual verification checklist
+
+For everything automated tests cannot cover. Build, deploy, restart Equibop, then work
+through it.
+
+1. The context menu entry appears in all four places: member list, message, DM list, profile
+2. The modal's OK / Cancel / Esc / Enter all behave as expected
+3. After saving, the message header changes without a reload (the member list needs a
+   channel switch or reload — confirm that too)
+4. The same user shows the same nickname in a different server (test with a user who has a
+   server nickname set)
+5. The DM list, voice channels, mentions and profiles are all substituted
+6. Saving an empty field restores the standard display
+7. `ニックネームを解除` from the menu also restores the standard display
+8. The entry does not appear for yourself, and your own server-profile nickname field is
+   untouched
+9. The settings screen lists entries and the delete button works
+10. Settings survive an Equibop restart
+11. Combined display with `ShowMeYourName` is not broken
+12. Give a friend a nickname, open their profile → "Edit Nickname", and check what the
+    field contains (**do not press save**)
+13. In a server where you can manage nicknames, right-click a member who has a nickname →
+    "Change Nickname", and check the field the same way (**do not press save**)
+14. Disable LocalNicknames in Settings → Plugins and confirm the member list, message
+    headers, DM list, mentions and profiles all revert to Discord's own display, with no
+    `[LocalNicknames]` restore-failure messages in the console
+15. Re-enable it and confirm nicknames come back everywhere
+16. Repeat the disable/enable cycle once more (some bugs only surface on the second pass)
+17. Opening `ニックネームを付ける` for a user with no nickname pre-fills the input with their
+    original display name; opening it for a user who already has one shows the current
+    nickname instead
+18. The profile of a user with a nickname shows the `ローカルニックネーム` section with
+    `元の名前` and `ニックネーム`. Check both the DM sidebar profile and the profile modal.
+    Users without a nickname get no section
+
+Items 1–13, 17 and 18 have been verified. **Items 14–16 are deliberately skipped** — see
+the restore limitation above; in short, a failure is always recoverable with a reload or a
+restart, so it carries no unrecoverable cost.
+
+Also check:
+
+- Open DevTools (Ctrl+Shift+I) right after enabling the plugin and confirm no
+  `[LocalNicknames]` warnings or errors. If there are any, the message names which of the
+  six paths failed.
+- Type a single character into the modal's input and confirm it appears as typed.
+- Scroll a large server's member list hard and confirm rendering is no heavier than with
+  the plugin disabled.
+
+## License
+
+GPL-3.0-or-later, matching Vencord and Equicord.
