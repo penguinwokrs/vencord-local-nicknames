@@ -29,14 +29,19 @@ jobs:
   build:
     name: Type check, lint and build against Equicord
     runs-on: ubuntu-latest
-    env:
-      EQUICORD_DIR: ${{ runner.temp }}/equicord
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      # Equicord はプラグインリポジトリの「外」へ clone する。リポジトリ直下に
+      # 置くと Equicord がプラグインリポジトリの内側に入れ子になり、さらにその
+      # src/userplugins/ からリポジトリ自身へリンクが張られる構造になる。この
+      # 配置ではビルド時にパスエイリアスが1つも解決できない
+      - name: Set EQUICORD_DIR
+        run: echo "EQUICORD_DIR=$RUNNER_TEMP/equicord" >> "$GITHUB_ENV"
 
       - name: Cache pnpm store
         uses: actions/cache@v4
@@ -49,6 +54,7 @@ jobs:
       - name: Set up Equicord
         run: ./tools/setup.sh
 
+      # 次に同種の問題が起きたとき、推測ではなく現物で判断できるようにしておく
       - name: Show generated tsconfig and link layout
         run: |
           echo "--- PWD ---"; pwd
@@ -57,12 +63,10 @@ jobs:
           echo "--- src/userplugins ---"; ls -la "$EQUICORD_DIR/src/userplugins/"
 
       - name: Type check
-        working-directory: ${{ env.EQUICORD_DIR }}
-        run: pnpm testTsc
+        run: cd "$EQUICORD_DIR" && pnpm testTsc
 
       - name: Lint
-        working-directory: ${{ env.EQUICORD_DIR }}
-        run: pnpm lint
+        run: cd "$EQUICORD_DIR" && pnpm lint
 
       - name: Build
         run: ./tools/build.sh
