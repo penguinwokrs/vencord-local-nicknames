@@ -60,7 +60,7 @@ jobs:
           echo "--- PWD ---"; pwd
           echo "--- EQUICORD_DIR ---"; echo "$EQUICORD_DIR"
           echo "--- tsconfig.json ---"; cat tsconfig.json
-          echo "--- src/userplugins ---"; ls -la "$EQUICORD_DIR/src/userplugins/"
+          echo "--- plugin link ---"; ls -la "$EQUICORD_DIR/src/equicordplugins/" | grep -i localnicknames
 
       - name: Type check
         run: cd "$EQUICORD_DIR" && pnpm testTsc
