@@ -108,7 +108,7 @@ Vencord のプラグイン走査は `readdir` の結果に対して `isDirectory
 `--standalone --disable-updater` を付けるのは、Vencord 内蔵のアップデータが
 （git リポジトリを同梱しない配置形態では動作しないため）無用なエラーを出さないようにするため。
 
-配置先は Windows 側の固定ディレクトリ（既定: `C:\Users\owner\VencordCustom`）とし、
+配置先は Windows 側の固定ディレクトリ（既定: `C:\Users\<you>\VencordCustom`）とし、
 Vesktop の 設定 → Vencord Location にこのディレクトリを一度だけ指定する。
 
 Vesktop はこのディレクトリに `package.json` と上記4ファイルが揃っているかだけを検証し、

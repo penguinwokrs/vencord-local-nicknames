@@ -30,7 +30,7 @@
 - コードスタイル（Vencord の ESLint）: インデント4スペース、文字列はダブルクォート、セミコロン必須、アロー関数の引数は不要な括弧を付けない（`arrow-parens: as-needed`）、`{ a }` のように波括弧の内側にスペース、ファイル末尾に改行
 - ビルドは常に `pnpm build --standalone --disable-updater`
 - Vencord のクローン先: `$HOME/projects/github.com/Vendicated/Vencord`（環境変数 `VENCORD_DIR` で上書き可）
-- 配置先: `/mnt/c/Users/owner/VencordCustom`（環境変数 `DEPLOY_DIR` で上書き可）
+- 配置先: `/mnt/c/Users/<you>/VencordCustom`（環境変数 `DEPLOY_DIR` で上書き可）
 - UI の文言は日本語。本計画に書かれた文字列をそのまま使う
 
 **Vencord には自動テストの仕組みがない。** 各タスクの検証は次の3層で行う:
@@ -133,7 +133,7 @@ pnpm build --standalone --disable-updater
 set -euo pipefail
 
 VENCORD_DIR="${VENCORD_DIR:-$HOME/projects/github.com/Vendicated/Vencord}"
-DEPLOY_DIR="${DEPLOY_DIR:-/mnt/c/Users/owner/VencordCustom}"
+DEPLOY_DIR="${DEPLOY_DIR:-/mnt/c/Users/<you>/VencordCustom}"
 
 FILES="vencordDesktopMain.js vencordDesktopPreload.js vencordDesktopRenderer.js vencordDesktopRenderer.css"
 
@@ -173,7 +173,7 @@ git -C "$VENCORD_DIR" pull --ff-only
 
 Run:
 ```bash
-cd /home/owner/projects/github.com/penguinwokrs/vencord-local-nicknames
+cd ~/path/to/vencord-local-nicknames
 chmod +x tools/*.sh
 ./tools/setup.sh
 ```
@@ -212,16 +212,16 @@ Expected: どちらもエラーなしで終了（終了コード 0）。
 
 Run:
 ```bash
-cd /home/owner/projects/github.com/penguinwokrs/vencord-local-nicknames
+cd ~/path/to/vencord-local-nicknames
 ./tools/build.sh && ./tools/deploy.sh
 ```
-Expected: `deployed to /mnt/c/Users/owner/VencordCustom`。
-`ls /mnt/c/Users/owner/VencordCustom` に `package.json` と `vencordDesktop*` の4ファイルが並ぶこと。
+Expected: `deployed to /mnt/c/Users/<you>/VencordCustom`。
+`ls /mnt/c/Users/<you>/VencordCustom` に `package.json` と `vencordDesktop*` の4ファイルが並ぶこと。
 
 - [ ] **Step 9: Vesktop に参照先を教えて疎通を確認する（手動）**
 
 1. Vesktop を起動する
-2. 設定 → Vesktop Settings → **Vencord Location** で `C:\Users\owner\VencordCustom` を選ぶ
+2. 設定 → Vesktop Settings → **Vencord Location** で `C:\Users\<you>\VencordCustom` を選ぶ
 3. Vesktop を再起動する
 4. 設定 → Plugins で `LocalNicknames` を検索する
 
@@ -232,7 +232,7 @@ Expected: `LocalNicknames` がプラグイン一覧に出る。有効化のト�
 - [ ] **Step 10: コミット**
 
 ```bash
-cd /home/owner/projects/github.com/penguinwokrs/vencord-local-nicknames
+cd ~/path/to/vencord-local-nicknames
 git add tools index.tsx
 git commit -m "feat: ビルド環境と最小プラグインを追加"
 ```
@@ -355,7 +355,7 @@ test("sortedEntries: map が無ければ空配列", () => {
 
 Run:
 ```bash
-cd /home/owner/projects/github.com/penguinwokrs/vencord-local-nicknames
+cd ~/path/to/vencord-local-nicknames
 chmod +x tools/test.sh && ./tools/test.sh
 ```
 Expected: FAIL。`Cannot find module` 相当のエラーで `nickname.ts` が無いと言われる。
@@ -423,7 +423,7 @@ export function sortedEntries(map: NicknameMap | undefined): Array<{ userId: str
 
 Run:
 ```bash
-cd /home/owner/projects/github.com/penguinwokrs/vencord-local-nicknames && ./tools/test.sh
+cd ~/path/to/vencord-local-nicknames && ./tools/test.sh
 ```
 Expected: PASS。`# pass 11` `# fail 0`。
 
@@ -449,7 +449,7 @@ ESLint が `"../nickname.ts"` の拡張子付き import を拒否した場合は
 - [ ] **Step 7: コミット**
 
 ```bash
-cd /home/owner/projects/github.com/penguinwokrs/vencord-local-nicknames
+cd ~/path/to/vencord-local-nicknames
 git add nickname.ts tools/nickname.test.mjs tools/test.sh
 git commit -m "feat: ニックネームの純粋ロジックとテストを追加"
 ```
@@ -561,14 +561,14 @@ Expected: 終了コード 0。
 
 Run:
 ```bash
-cd /home/owner/projects/github.com/penguinwokrs/vencord-local-nicknames && ./tools/test.sh
+cd ~/path/to/vencord-local-nicknames && ./tools/test.sh
 ```
 Expected: `# pass 11` `# fail 0`。
 
 - [ ] **Step 4: コミット**
 
 ```bash
-cd /home/owner/projects/github.com/penguinwokrs/vencord-local-nicknames
+cd ~/path/to/vencord-local-nicknames
 git add store.ts
 git commit -m "feat: ニックネームの保存層を追加"
 ```
@@ -727,10 +727,10 @@ Expected: 終了コード 0。
 
 Run:
 ```bash
-cd /home/owner/projects/github.com/penguinwokrs/vencord-local-nicknames
+cd ~/path/to/vencord-local-nicknames
 ./tools/build.sh && ./tools/deploy.sh
 ```
-Expected: `deployed to /mnt/c/Users/owner/VencordCustom`。
+Expected: `deployed to /mnt/c/Users/<you>/VencordCustom`。
 
 - [ ] **Step 5: 設定ファイルに直接1件書いて効果を確認する（手動）**
 
@@ -738,7 +738,7 @@ UI がまだ無いので、保存データを手で作って横取りが効い�
 
 1. Vesktop を終了する
 2. 対象にするユーザーの ID を1つ用意する（Discord で開発者モードを有効にし、ユーザーを右クリック →「ユーザーIDをコピー」）
-3. `/mnt/c/Users/owner/AppData/Roaming/vesktop/settings/settings.json` を開き、`"plugins"` の中に次を追加する（`<USER_ID>` は実際の ID、既に `LocalNicknames` の項目があれば `nicknames` だけ足す）:
+3. `/mnt/c/Users/<you>/AppData/Roaming/vesktop/settings/settings.json` を開き、`"plugins"` の中に次を追加する（`<USER_ID>` は実際の ID、既に `LocalNicknames` の項目があれば `nicknames` だけ足す）:
 
 ```json
 "LocalNicknames": {
@@ -766,7 +766,7 @@ Vesktop を終了し、`settings.json` に足した `nicknames` の中身を `{}
 - [ ] **Step 7: コミット**
 
 ```bash
-cd /home/owner/projects/github.com/penguinwokrs/vencord-local-nicknames
+cd ~/path/to/vencord-local-nicknames
 git add nameOverride.ts index.tsx
 git commit -m "feat: 名前解決の横取りを追加"
 ```
@@ -935,10 +935,10 @@ Expected: 終了コード 0。
 
 Run:
 ```bash
-cd /home/owner/projects/github.com/penguinwokrs/vencord-local-nicknames
+cd ~/path/to/vencord-local-nicknames
 ./tools/build.sh && ./tools/deploy.sh
 ```
-Expected: `deployed to /mnt/c/Users/owner/VencordCustom`。その後 Vesktop を再起動する。
+Expected: `deployed to /mnt/c/Users/<you>/VencordCustom`。その後 Vesktop を再起動する。
 
 - [ ] **Step 5: 一連の操作を確認する（手動）**
 
@@ -959,7 +959,7 @@ Expected: 上記すべてが期待通り。Console に `[LocalNicknames]` のエ
 - [ ] **Step 6: コミット**
 
 ```bash
-cd /home/owner/projects/github.com/penguinwokrs/vencord-local-nicknames
+cd ~/path/to/vencord-local-nicknames
 git add NicknameModal.tsx index.tsx
 git commit -m "feat: ニックネームの設定モーダルとコンテキストメニューを追加"
 ```
@@ -1068,7 +1068,7 @@ Expected: 終了コード 0。
 
 Run:
 ```bash
-cd /home/owner/projects/github.com/penguinwokrs/vencord-local-nicknames && ./tools/test.sh
+cd ~/path/to/vencord-local-nicknames && ./tools/test.sh
 ```
 Expected: `# pass 11` `# fail 0`。
 
@@ -1076,7 +1076,7 @@ Expected: `# pass 11` `# fail 0`。
 
 Run:
 ```bash
-cd /home/owner/projects/github.com/penguinwokrs/vencord-local-nicknames
+cd ~/path/to/vencord-local-nicknames
 ./tools/build.sh && ./tools/deploy.sh
 ```
 その後 Vesktop を再起動する。
@@ -1096,7 +1096,7 @@ Expected:
 - [ ] **Step 7: コミット**
 
 ```bash
-cd /home/owner/projects/github.com/penguinwokrs/vencord-local-nicknames
+cd ~/path/to/vencord-local-nicknames
 git add NicknameList.tsx index.tsx
 git commit -m "feat: 設定画面にニックネーム一覧を追加"
 ```
@@ -1147,10 +1147,10 @@ Vencord を自分でビルドし、Vesktop にそれを読ませます。
 ```bash
 ./tools/setup.sh     # Vencord を clone し、依存を入れ、src/userplugins/ にリンクを張る
 ./tools/build.sh     # Vencord をビルドする
-./tools/deploy.sh    # 成果物を /mnt/c/Users/owner/VencordCustom へ配置する
+./tools/deploy.sh    # 成果物を /mnt/c/Users/<you>/VencordCustom へ配置する
 ```
 
-その後 Vesktop の 設定 → **Vencord Location** で `C:\Users\owner\VencordCustom` を指定し、
+その後 Vesktop の 設定 → **Vencord Location** で `C:\Users\<you>\VencordCustom` を指定し、
 Vesktop を再起動します。この指定は最初の一度だけで済みます。
 
 クローン先と配置先は環境変数で変えられます。
@@ -1200,7 +1200,7 @@ cd "$HOME/projects/github.com/Vendicated/Vencord" && pnpm testTsc && pnpm lint
 
 Run:
 ```bash
-cd /home/owner/projects/github.com/penguinwokrs/vencord-local-nicknames && ./tools/test.sh
+cd ~/path/to/vencord-local-nicknames && ./tools/test.sh
 cd ~/projects/github.com/Vendicated/Vencord && pnpm testTsc && pnpm lint
 ```
 Expected: テストが `# pass 11` `# fail 0`、型チェックと lint が終了コード 0。
@@ -1209,11 +1209,11 @@ Expected: テストが `# pass 11` `# fail 0`、型チェックと lint が終�
 
 Run:
 ```bash
-cd /home/owner/projects/github.com/penguinwokrs/vencord-local-nicknames
+cd ~/path/to/vencord-local-nicknames
 rm -rf ~/projects/github.com/Vendicated/Vencord/dist
 ./tools/build.sh && ./tools/deploy.sh
 ```
-Expected: `deployed to /mnt/c/Users/owner/VencordCustom`。
+Expected: `deployed to /mnt/c/Users/<you>/VencordCustom`。
 
 - [ ] **Step 4: 受け入れ検証を全項目通す（手動）**
 
@@ -1236,7 +1236,7 @@ Vesktop を再起動し、設計書 11 節の全項目を確認する。
 - [ ] **Step 5: コミット**
 
 ```bash
-cd /home/owner/projects/github.com/penguinwokrs/vencord-local-nicknames
+cd ~/path/to/vencord-local-nicknames
 git add README.md
 git commit -m "docs: README を追加"
 ```

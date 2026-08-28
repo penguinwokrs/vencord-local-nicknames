@@ -2,7 +2,9 @@
 set -euo pipefail
 
 EQUICORD_DIR="${EQUICORD_DIR:-$HOME/projects/github.com/Equicord/Equicord}"
-DEPLOY_DIR="${DEPLOY_DIR:-/mnt/c/Users/owner/EquicordCustom}"
+# 既定値は WSL のユーザー名と Windows のユーザー名が同じ場合を想定している。
+# 異なる場合や Windows 以外で使う場合は DEPLOY_DIR を指定すること。
+DEPLOY_DIR="${DEPLOY_DIR:-/mnt/c/Users/$USER/EquicordCustom}"
 
 SRC_DIR="$EQUICORD_DIR/dist/equibop"
 FILES=(main.js renderer.js preload.js package.json)

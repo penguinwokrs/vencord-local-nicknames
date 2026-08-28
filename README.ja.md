@@ -66,11 +66,11 @@ Equicord にはランタイムのプラグイン読み込み機構が無いた�
 ```bash
 ./tools/setup.sh     # Equicord を clone し、依存を入れ、src/userplugins/ にリンクを張る
 ./tools/build.sh     # Equicord をビルドする
-./tools/deploy.sh    # 成果物を /mnt/c/Users/owner/EquicordCustom へ配置する
+./tools/deploy.sh    # 成果物を /mnt/c/Users/<you>/EquicordCustom へ配置する
 ```
 
 その後 Equibop の 設定 → **Equicord の場所**（Equicord Location）で
-`C:\Users\owner\EquicordCustom` を指定し、Equibop を再起動します。この指定は最初の一度だけです。
+`C:\Users\<you>\EquicordCustom` を指定し、Equibop を再起動します。この指定は最初の一度だけです。
 
 `EquicordCustom` の中に生成される `equibop\` フォルダそのものではなく、その**親フォルダ**を
 指定してください。

@@ -73,10 +73,10 @@ and point Equibop at the result.
 ```bash
 ./tools/setup.sh     # clone Equicord, install deps, link this repo into src/userplugins/
 ./tools/build.sh     # build Equicord
-./tools/deploy.sh    # copy the output to /mnt/c/Users/owner/EquicordCustom
+./tools/deploy.sh    # copy the output to /mnt/c/Users/<you>/EquicordCustom
 ```
 
-Then, in Equibop, set Settings → **Equicord Location** to `C:\Users\owner\EquicordCustom`
+Then, in Equibop, set Settings → **Equicord Location** to `C:\Users\<you>\EquicordCustom`
 and restart Equibop. You only need to do this once.
 
 Point it at the folder that *contains* the generated `equibop\` folder, not at `equibop\`
