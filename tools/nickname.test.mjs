@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { lookupNickname, normalizeNickname, sortedEntries, withMemberNick, withNickname, withoutNickname } from "../nickname.ts";
+import { initialNicknameInput, lookupLabel, lookupNickname, normalizeNickname, sortedEntries, withMemberNick, withNickname, withoutNickname } from "../nickname.ts";
 
 test("normalizeNickname: 前後の空白を落とす", () => {
     assert.equal(normalizeNickname("  ぺんぎん  "), "ぺんぎん");
@@ -219,4 +219,50 @@ test("withMemberNick: 入力の member を変更しない", () => {
     const snapshot = { ...member };
     withMemberNick(member, "ぺんぎん");
     assert.deepEqual(member, snapshot);
+});
+
+test("initialNicknameInput: ニックネームが未設定なら元の表示名を初期値にする", () => {
+    assert.equal(initialNicknameInput(null, "いけだ"), "いけだ");
+});
+
+test("initialNicknameInput: ニックネームが設定済みならそちらを初期値にする", () => {
+    assert.equal(initialNicknameInput("いけだまん", "いけだ"), "いけだまん");
+});
+
+test("initialNicknameInput: 空文字列のニックネームは未設定として扱う", () => {
+    assert.equal(initialNicknameInput("", "いけだ"), "いけだ");
+});
+
+test("initialNicknameInput: 空白のみのニックネームも未設定として扱う", () => {
+    assert.equal(initialNicknameInput("   ", "いけだ"), "いけだ");
+});
+
+test("initialNicknameInput: 元の表示名が無ければ空欄のまま", () => {
+    assert.equal(initialNicknameInput(null, ""), "");
+    assert.equal(initialNicknameInput(null, "   "), "");
+    assert.equal(initialNicknameInput(null, undefined), "");
+});
+
+test("initialNicknameInput: 元の表示名の前後の空白は落とす", () => {
+    assert.equal(initialNicknameInput(null, "  いけだ  "), "いけだ");
+});
+
+test("lookupLabel: 保存時の元の表示名を引ける", () => {
+    const map = { "123": { nickname: "ぺんぎん", label: "penguin" } };
+    assert.equal(lookupLabel(map, "123"), "penguin");
+});
+
+test("lookupLabel: 未登録は null", () => {
+    assert.equal(lookupLabel({}, "123"), null);
+});
+
+test("lookupLabel: map や userId が無ければ null", () => {
+    assert.equal(lookupLabel(undefined, "123"), null);
+    assert.equal(lookupLabel({}, undefined), null);
+});
+
+test("lookupLabel: label が無い・空なら null", () => {
+    assert.equal(lookupLabel({ "1": { nickname: "ぺんぎん" } }, "1"), null);
+    assert.equal(lookupLabel({ "2": { nickname: "ぺんぎん", label: "" } }, "2"), null);
+    assert.equal(lookupLabel({ "3": { nickname: "ぺんぎん", label: 42 } }, "3"), null);
 });

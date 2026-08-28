@@ -12,6 +12,7 @@ import { Menu, openModal, UserStore } from "@webpack/common";
 import { applyNameOverrides, getOriginalName, removeNameOverrides } from "./nameOverride";
 import { NicknameList } from "./NicknameList";
 import { NicknameModal } from "./NicknameModal";
+import { NicknameProfileSection } from "./NicknameProfileSection";
 import { clearNickname, getNickname, invalidateNicknameCache, settings } from "./store";
 
 const UserContext: NavContextMenuPatchCallback = (children, { user }: { user?: User; }) => {
@@ -53,6 +54,15 @@ export default definePlugin({
     settingsAboutComponent: NicknameList,
     contextMenus: {
         "user-context": UserContext
+    },
+
+    // ニックネームを付けると元の名前を確認する手段が無くなるため、プロフィールに
+    // 両方を並べて出す。webpack パッチは Equicord 側の ProfileSectionsAPI が持ち、
+    // 本プラグイン自体はパッチを持たない（登録と解除は PluginManager が行う）
+    dependencies: ["ProfileSectionsAPI"],
+    renderProfileSection: {
+        render: NicknameProfileSection,
+        priority: 0
     },
 
     start() {

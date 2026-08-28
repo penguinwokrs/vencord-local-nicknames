@@ -37,6 +37,19 @@ export function lookupNickname(map: NicknameMap | undefined, userId: string | un
 }
 
 /**
+ * 保存データから userId の label（保存した時点で見えていた元の表示名）を引く。
+ * 未登録・label 無し・空文字列・壊れた形はいずれも null を返す。
+ */
+export function lookupLabel(map: NicknameMap | undefined, userId: string | undefined): string | null {
+    if (!map || !userId) return null;
+
+    const entry = map[userId];
+    if (!entry || typeof entry.label !== "string" || entry.label.length === 0) return null;
+
+    return entry.label;
+}
+
+/**
  * 設定画面の一覧用に、元の名前の昇順で並べたエントリを返す。
  * 壊れた形のエントリは除外する。
  */
@@ -112,4 +125,17 @@ export function withoutNickname(map: NicknameMap | undefined, userId: string): N
  */
 export function withMemberNick(member: Record<string, any>, nickname: string): Record<string, any> {
     return { ...member, nick: nickname };
+}
+
+/**
+ * ニックネーム入力欄の初期値を返す。
+ * 既にニックネームが付いていればそれを、まだ付いていなければ元の表示名を初期値にする。
+ * 未設定の相手に付けるとき、元の名前を消して打ち直すのではなく、そこから編集できるようにするため。
+ *
+ * 元の表示名が空・空白のみの場合は空欄のままにする。空欄で OK を押すと解除になる
+ * （store.ts / withNickname 参照）ので、実質「何もしない」に落ちる。
+ */
+export function initialNicknameInput(existing: string | null | undefined, baseName: string | undefined): string {
+    if (typeof existing === "string" && existing.trim().length > 0) return existing;
+    return typeof baseName === "string" ? baseName.trim() : "";
 }

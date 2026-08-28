@@ -8,6 +8,7 @@ import ErrorBoundary from "@components/ErrorBoundary";
 import { RenderModalProps, User } from "@vencord/discord-types";
 import { Modal, TextInput, useState } from "@webpack/common";
 
+import { initialNicknameInput } from "./nickname";
 import { getNickname, setNickname } from "./store";
 
 interface Props {
@@ -24,8 +25,9 @@ const noteStyle = {
 } as const;
 
 function NicknameModalInner({ user, baseName, props }: Props) {
-    const existing = getNickname(user.id) ?? "";
-    const [value, setValue] = useState(existing);
+    const existing = getNickname(user.id);
+    // まだニックネームが無い相手には元の表示名を初期値として入れ、そこから編集できるようにする
+    const [value, setValue] = useState(() => initialNicknameInput(existing, baseName));
 
     const save = () => {
         setNickname(user.id, value, baseName);
