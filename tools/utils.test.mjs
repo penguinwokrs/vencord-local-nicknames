@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { initialNicknameInput, lookupLabel, lookupNickname, normalizeNickname, sortedEntries, withMemberNick, withNickname, withoutNickname } from "../nickname.ts";
+import { initialNicknameInput, lookupLabel, lookupNickname, pickStrings, normalizeNickname, sortedEntries, withMemberNick, withNickname, withoutNickname } from "../utils.ts";
 
 test("normalizeNickname: 前後の空白を落とす", () => {
     assert.equal(normalizeNickname("  ぺんぎん  "), "ぺんぎん");
@@ -265,4 +265,28 @@ test("lookupLabel: label が無い・空なら null", () => {
     assert.equal(lookupLabel({ "1": { nickname: "ぺんぎん" } }, "1"), null);
     assert.equal(lookupLabel({ "2": { nickname: "ぺんぎん", label: "" } }, "2"), null);
     assert.equal(lookupLabel({ "3": { nickname: "ぺんぎん", label: 42 } }, "3"), null);
+});
+
+test("pickStrings: 既定は英語", () => {
+    assert.equal(pickStrings("en-US").profileSection, "Local nickname");
+    assert.equal(pickStrings("fr").profileSection, "Local nickname");
+});
+
+test("pickStrings: ja なら日本語", () => {
+    assert.equal(pickStrings("ja").profileSection, "ローカルニックネーム");
+});
+
+test("pickStrings: ja で始まるロケールも日本語として扱う", () => {
+    assert.equal(pickStrings("ja-JP").profileSection, "ローカルニックネーム");
+});
+
+test("pickStrings: ロケールが取れなくても英語に落ちる", () => {
+    assert.equal(pickStrings(undefined).profileSection, "Local nickname");
+    assert.equal(pickStrings("").profileSection, "Local nickname");
+});
+
+test("pickStrings: 両言語のキーが完全に一致している", () => {
+    const en = Object.keys(pickStrings("en")).sort();
+    const ja = Object.keys(pickStrings("ja")).sort();
+    assert.deepEqual(ja, en);
 });

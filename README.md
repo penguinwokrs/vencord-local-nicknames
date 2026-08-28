@@ -10,7 +10,8 @@ server you are looking at them in. No server API is involved: the nickname is in
 to everyone else and is never sent to Discord (with one exception, via Discord's own
 nickname dialog — see [Known limitations](#known-limitations)).
 
-> The plugin's user interface is in Japanese.
+> The interface is English by default and switches to Japanese when Discord's language is
+> set to Japanese. Detection uses `LocaleStore.locale`; every other locale gets English.
 
 ## How it works
 
@@ -34,18 +35,18 @@ and every one of them is a maintenance liability.
 
 ## Usage
 
-Right-click a user → `ニックネームを付ける` (set a nickname) → type it → `OK`.
+Right-click a user → `Set local nickname` → type it → `OK`.
 
 For a user who has no nickname yet, the input is **pre-filled with their original display
 name**, so you can edit it instead of retyping it.
 
-To remove a nickname, right-click → `ニックネームを解除` (clear), or leave the input empty
-and press `OK`.
+To remove a nickname, right-click → `Clear local nickname`, or leave the input empty and
+press `OK`.
 
-The profile of a user with a nickname gains a `ローカルニックネーム` section listing
-`元の名前` (original name) and `ニックネーム` (nickname). Setting a nickname otherwise hides
-the original name completely, so this is where you can check it. It appears both in the
-DM sidebar profile and in the profile modal.
+The profile of a user with a nickname gains a `Local nickname` section listing their
+`Original name` and `Nickname`. Setting a nickname otherwise hides the original name
+completely, so this is where you can check it. It appears both in the DM sidebar profile
+and in the profile modal.
 
 The saved list lives under Settings → Plugins → LocalNicknames → the gear icon.
 
@@ -71,7 +72,7 @@ Equicord has no runtime plugin loader, so you build an Equicord that contains th
 and point Equibop at the result.
 
 ```bash
-./tools/setup.sh     # clone Equicord, install deps, link this repo into src/userplugins/
+./tools/setup.sh     # clone Equicord, install deps, link this repo into src/equicordplugins/
 ./tools/build.sh     # build Equicord
 ./tools/deploy.sh    # copy the output to /mnt/c/Users/<you>/EquicordCustom
 ```
@@ -95,8 +96,8 @@ commit it if you see it.
 
 It exists because of how Equicord builds. Equicord's esbuild resolves each source file to
 its real path (following symlinks) and then walks *up* from there looking for a
-`tsconfig.json`. This repository is only symlinked into `src/userplugins/` from outside
-Equicord's tree, so that walk never reaches Equicord's own `tsconfig.json` — the file that
+`tsconfig.json`. This repository is only symlinked into `src/equicordplugins/` from
+outside Equicord's tree, so that walk never reaches Equicord's own `tsconfig.json` — the file that
 defines path aliases such as `@utils/*`. `tools/gen-tsconfig.sh` generates a
 `tsconfig.json` at this repository's root that points at Equicord's real aliases, which
 ends the search at the right place.
@@ -138,7 +139,7 @@ cd "$HOME/projects/github.com/Equicord/Equicord" && pnpm testTsc && pnpm lint
 
 - **Unit tests** — `./tools/test.sh` on Node 22.
 - **Type check, lint and build** — clones Equicord, links this repository into
-  `src/userplugins/`, then runs `pnpm testTsc`, `pnpm lint` and a full build.
+  `src/equicordplugins/`, then runs `pnpm testTsc`, `pnpm lint` and a full build.
 - **Bundle verification** — greps the built `renderer.js` for this plugin's code. A green
   build proves nothing on its own; this repository has already had a case where type
   checking, linting, building and deploying all succeeded while the plugin did nothing at
@@ -189,6 +190,11 @@ why one must not be added), so tags are the single source of truth for the versi
   uploaded to whichever Equicord cloud backend you configured. That is not Discord, but
   the user IDs and the names you chose do leave your machine. Know where yours points
   before enabling it.
+- **Equicord treats it as a bundled plugin.** With upstream submission in mind, the plugin
+  is linked into `src/equicordplugins/localNicknames` rather than `src/userplugins/`. As a
+  result `SupportHelper` no longer reports `Has UserPlugins`, and in the client the plugin
+  is indistinguishable from one Equicord ships. That is harmless for a personal build, but
+  be aware the marker that says "this is a user plugin" is gone.
 - **Upstream contribution is out of scope.** Equicord's `CONTRIBUTING.md` allows
   AI assistance at the level of inline completion but requires that pull requests be
   substantially human-written, and forbids AI-generated PR descriptions and READMEs. This
@@ -229,7 +235,7 @@ through it.
    server nickname set)
 5. The DM list, voice channels, mentions and profiles are all substituted
 6. Saving an empty field restores the standard display
-7. `ニックネームを解除` from the menu also restores the standard display
+7. `Clear local nickname` from the menu also restores the standard display
 8. The entry does not appear for yourself, and your own server-profile nickname field is
    untouched
 9. The settings screen lists entries and the delete button works
@@ -244,12 +250,14 @@ through it.
     `[LocalNicknames]` restore-failure messages in the console
 15. Re-enable it and confirm nicknames come back everywhere
 16. Repeat the disable/enable cycle once more (some bugs only surface on the second pass)
-17. Opening `ニックネームを付ける` for a user with no nickname pre-fills the input with their
+17. Opening `Set local nickname` for a user with no nickname pre-fills the input with their
     original display name; opening it for a user who already has one shows the current
     nickname instead
-18. The profile of a user with a nickname shows the `ローカルニックネーム` section with
-    `元の名前` and `ニックネーム`. Check both the DM sidebar profile and the profile modal.
+18. The profile of a user with a nickname shows the `Local nickname` section with
+    `Original name` and `Nickname`. Check both the DM sidebar profile and the profile modal.
     Users without a nickname get no section
+19. Switch Discord's language to Japanese and confirm every string above switches too;
+    switch to a third language and confirm it falls back to English
 
 Items 1–13, 17 and 18 have been verified. **Items 14–16 are deliberately skipped** — see
 the restore limitation above; in short, a failure is always recoverable with a reload or a

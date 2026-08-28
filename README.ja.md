@@ -9,6 +9,9 @@ Discord の他ユーザーに、**自分のクライアント内でのみ有効�
 サーバー API は一切使いません。ニックネームは他人には見えず、Discord のサーバーにも送信されません
 （Discord 組み込みのニックネーム編集ダイアログ経由の例外があります。[既知の制約](#既知の制約)を参照）。
 
+> UI は既定で英語、Discord の言語設定が日本語のときだけ日本語になります。判定は
+> `LocaleStore.locale` を見ており、それ以外の言語はすべて英語になります。
+
 ## 仕組み
 
 本プラグインは **webpack パッチを1つも持ちません。** 6つの関数を実行時にラップし、
@@ -29,7 +32,7 @@ Discord の他ユーザーに、**自分のクライアント内でのみ有効�
 
 ## 使い方
 
-ユーザーを右クリック → `ニックネームを付ける` → 入力して `OK`。
+ユーザーを右クリック → `ニックネームを付ける`（英語環境では `Set local nickname`）→ 入力して `OK`。
 
 まだニックネームが付いていない相手の場合、入力欄には**元の表示名があらかじめ入っています**。
 打ち直さずにそこから編集できます。
@@ -64,7 +67,7 @@ Equicord にはランタイムのプラグイン読み込み機構が無いた�
 自分でビルドし、Equibop にそれを読ませます。
 
 ```bash
-./tools/setup.sh     # Equicord を clone し、依存を入れ、src/userplugins/ にリンクを張る
+./tools/setup.sh     # Equicord を clone し、依存を入れ、src/equicordplugins/ にリンクを張る
 ./tools/build.sh     # Equicord をビルドする
 ./tools/deploy.sh    # 成果物を /mnt/c/Users/<you>/EquicordCustom へ配置する
 ```
@@ -88,7 +91,7 @@ EQUICORD_DIR=/path/to/Equicord DEPLOY_DIR=/mnt/c/Users/you/EquicordCustom ./tool
 
 必要になる理由は Equicord 側のビルド方式にあります。Equicord の esbuild ビルドは、各ソース
 ファイルの symlink 解決後の実パスから上位ディレクトリへ辿って `tsconfig.json` を探索します。
-このリポジトリは Equicord のツリーの外から `src/userplugins/` へシンボリックリンクされて
+このリポジトリは Equicord のツリーの外から `src/equicordplugins/` へシンボリックリンクされて
 いるだけなので、その探索は Equicord 本体の `tsconfig.json`（`@utils/*` などのパスエイリアス
 の定義元）まで辿り着けません。そこで `tools/gen-tsconfig.sh` が、Equicord の実際のパス
 エイリアスを指すこのリポジトリ用の `tsconfig.json` をルートに生成し、探索を打ち切らせます。
@@ -129,7 +132,7 @@ cd "$HOME/projects/github.com/Equicord/Equicord" && pnpm testTsc && pnpm lint
 `.github/workflows/ci.yml` が `main` への push と、すべての pull request で走ります。
 
 - **単体テスト** — Node 22 で `./tools/test.sh`。
-- **型チェック・lint・ビルド** — Equicord を clone し、このリポジトリを `src/userplugins/`
+- **型チェック・lint・ビルド** — Equicord を clone し、このリポジトリを `src/equicordplugins/`
   へリンクしてから `pnpm testTsc`・`pnpm lint`・フルビルドを実行。
 - **バンドル検証** — 生成された `renderer.js` を grep し、本プラグインのコードが実際に
   入っていることを確認。「ビルドが通った」だけでは何も保証されません。このリポジトリでは
@@ -180,6 +183,11 @@ git push origin v1.2.3
   Equicord クラウドバックエンドへアップロードされます。Discord のサーバーではありませんが、
   対象ユーザーの ID と付けた名前がそこへ送られることにはなります。プライバシーを重視するなら、
   利用先を把握した上で有効にしてください。
+- **Equicord 内では同梱プラグインとして扱われます。** 上流へ出すことを見据えて、配置先を
+  `src/userplugins/` ではなく `src/equicordplugins/localNicknames` にしています。この結果、
+  `SupportHelper` の診断情報に `Has UserPlugins` が出なくなり、クライアント上は Equicord
+  同梱のプラグインと区別が付かなくなります。手元のビルドの話なので実害はありませんが、
+  UserPlugin であることを示す印は消えている点は認識しておいてください。
 - **上流へのコントリビュートは対象外。** Equicord の `CONTRIBUTING.md` は「AI アシスト
   （インライン補完程度）は許容するが、PR は大部分が人間の手によるものであること」
   「AI で PR の説明や README を生成しないこと」を求めており、本プラグインの開発の仕方は

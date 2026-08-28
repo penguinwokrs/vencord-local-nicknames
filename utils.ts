@@ -139,3 +139,61 @@ export function initialNicknameInput(existing: string | null | undefined, baseNa
     if (typeof existing === "string" && existing.trim().length > 0) return existing;
     return typeof baseName === "string" ? baseName.trim() : "";
 }
+
+/**
+ * UI 文字列。既定は英語で、日本語ロケールのときだけ日本語にする。
+ * Discord のロケールは LocaleStore.locale から取れるが、このモジュールは
+ * 単体テストのために Vencord へ依存しない決まりなので、ロケール文字列を
+ * 引数で受け取る純粋関数として切り出してある。呼び出し側は
+ * pickStrings(LocaleStore.locale) の形で使う。
+ */
+const en = {
+    menuSet: "Set local nickname",
+    menuChange: "Change local nickname",
+    menuClear: "Clear local nickname",
+    modalTitleSet: "Set a local nickname",
+    modalTitleChange: "Change local nickname",
+    inputPlaceholder: "Nickname",
+    ok: "OK",
+    cancel: "Cancel",
+    emptyToClear: "Leave the field empty and press OK to clear the nickname.",
+    reloadHint: "If a name is still stale somewhere, press Ctrl+R to reload.",
+    listTitle: "Saved nicknames",
+    listEmpty: "No nicknames yet. Right-click a user and choose \"Set local nickname\".",
+    delete: "Delete",
+    profileSection: "Local nickname",
+    originalName: "Original name",
+    nickname: "Nickname",
+    settingsDescription: "Map of local nicknames, keyed by user ID"
+} as const;
+
+/**
+ * 英語表のキーをすべて備えていることを型で強制する。値の型は string まで広げる
+ * （as const のままだと英語のリテラル型になり、日本語表が代入できない）
+ */
+export type Strings = { readonly [K in keyof typeof en]: string };
+
+const ja: Strings = {
+    menuSet: "ニックネームを付ける",
+    menuChange: "ニックネームを変更",
+    menuClear: "ニックネームを解除",
+    modalTitleSet: "ニックネームを付ける",
+    modalTitleChange: "ニックネームを変更",
+    inputPlaceholder: "ニックネーム",
+    ok: "OK",
+    cancel: "キャンセル",
+    emptyToClear: "空欄のまま OK を押すとニックネームを解除します。",
+    reloadHint: "反映されない箇所があれば Ctrl+R で再読み込みしてください。",
+    listTitle: "保存済みのニックネーム",
+    listEmpty: "まだニックネームは登録されていません。ユーザーを右クリックして「ニックネームを付ける」から登録できます。",
+    delete: "削除",
+    profileSection: "ローカルニックネーム",
+    originalName: "元の名前",
+    nickname: "ニックネーム",
+    settingsDescription: "ユーザーIDをキーとするローカルニックネームのマップ"
+};
+
+/** ロケール文字列に対応する UI 文字列を返す。既定は英語。 */
+export function pickStrings(locale: string | undefined | null): Strings {
+    return typeof locale === "string" && locale.toLowerCase().startsWith("ja") ? ja : en;
+}

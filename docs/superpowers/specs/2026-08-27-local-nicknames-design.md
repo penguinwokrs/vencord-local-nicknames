@@ -55,29 +55,69 @@ Vencord のサードパーティプラグイン（UserPlugin）の慣習に従�
 
 ```
 vencord-local-nicknames/
-├── index.tsx                   プラグイン定義、コンテキストメニュー、プロフィールセクションの登録
-├── nickname.ts                 純粋ロジック（Vencord に非依存。単体テストの対象はここだけ）
-├── store.ts                    ニックネームの読み書き、自分自身の除外、キャッシュ、変更通知
-├── nameOverride.ts             名前解決の横取り（6つの関数の実行時ラップ）と復元
-├── NicknameModal.tsx           入力モーダル
-├── NicknameList.tsx            設定画面の一覧 + 削除 UI
-├── NicknameProfileSection.tsx  プロフィールに元の名前とニックネームを並べて出すセクション
-├── README.md                   導入手順
-├── docs/                       設計書など
+├── index.tsx           プラグイン定義、名前解決の横取り（6つの関数の実行時ラップ）と復元、
+│                       コンテキストメニュー、プロフィールセクションの登録
+├── utils.ts            純粋ロジックと UI 文字列表（Vencord に非依存。単体テストの対象はここだけ）
+├── settings.ts         設定と永続化、自分自身の除外、キャッシュ、変更通知
+├── components.tsx      入力モーダル、設定画面の一覧、プロフィールセクション
+├── README.md           導入手順（英語）
+├── README.ja.md        同（日本語）
+├── docs/               設計書など
 └── tools/
-    ├── setup.sh                Equicord を clone し、依存を入れ、本リポジトリを配置する
-    ├── gen-tsconfig.sh         Equicord のパスに合わせて tsconfig.json を生成する
-    ├── build.sh                Equicord をビルドする
-    ├── deploy.sh               成果物を Equibop の参照先へコピーする
-    ├── update.sh               Equicord を更新して再ビルド・再配置する
-    ├── test.sh                 nickname.ts の単体テストを走らせる
-    └── nickname.test.mjs       その単体テスト
+    ├── setup.sh        Equicord を clone し、依存を入れ、本リポジトリを配置する
+    ├── gen-tsconfig.sh Equicord のパスに合わせて tsconfig.json を生成する
+    ├── build.sh        Equicord をビルドする
+    ├── deploy.sh       成果物を Equibop の参照先へコピーする
+    ├── update.sh       Equicord を更新して再ビルド・再配置する
+    ├── test.sh         utils.ts の単体テストを走らせる
+    └── utils.test.mjs  その単体テスト
 ```
 
-**ルートに `package.json` を置かない。** Vencord のビルドはプラグインディレクトリを
-`import p from "./userplugins/vencord-local-nicknames"` の形で読み込むため、そこに `package.json` が
+ファイル数は上流の `.rules`（`AGENTS.md` / `CLAUDE.md` の実体）に合わせている。同ルールは
+「1ファイル構成が既定。250行を超えるか、2つ目のファイルが本当に再利用可能なときだけ分割し、
+分割先は `utils.ts` / `settings.ts` / `components/` を使う」としている。本プラグインは
+コメントを除いても400行を超えるため分割は妥当だが、名前と粒度をそのルールの語彙に合わせた。
+
+Equicord 側の配置先は `src/equicordplugins/localNicknames`。ディレクトリ名は上流の慣習に
+合わせて camelCase にしている。以前は `src/userplugins/` へ置いていたが、上流へ出すことを
+見据えて移した。副作用として `SupportHelper` の `Has UserPlugins` が出なくなる。
+
+**ルートに `package.json` を置かない。** Equicord のビルドはプラグインディレクトリを
+`import p from "./equicordplugins/localNicknames"` の形で読み込むため、そこに `package.json` が
 あると Node の解決規則で `main` フィールドが先に評価され、`index.tsx` に到達できなくなる恐れがある。
 ビルド関連はすべて `tools/` 配下のシェルスクリプトとして持つ。
+
+### 4.1.1 上流へ出すときに必要になる差分
+
+本リポジトリは単体で成立している必要があるため、Equicord 側のファイルを前提にした書き方は
+していない。上流へ PR を出す段階で、次の2点だけを差し替える。
+
+**1. Equicord の `src/utils/constants.ts` に著者を追加する**
+
+```ts
+export const EquicordDevs = Object.freeze({
+    // ...
+    penguinwokrs: {
+        name: "penguinwokrs",
+        id: 385266832136863746n
+    },
+```
+
+**2. `index.tsx` の `authors` をそこから参照する**
+
+```diff
+-import definePlugin from "@utils/types";
++import { EquicordDevs } from "@utils/constants";
++import definePlugin from "@utils/types";
+@@
+-    authors: [{ name: "penguinwokrs", id: 385266832136863746n }],
++    authors: [EquicordDevs.penguinwokrs],
+```
+
+この順序でなければならない。`EquicordDevs.penguinwokrs` は上流に定義が入って初めて存在する
+ため、先に 2 だけを適用すると手元と CI の両方で型エラーになる。逆に 1 は Equicord のツリー
+側の変更であり、本リポジトリには含められない。そのため本リポジトリでは実 ID をインラインで
+持ち、`authors` の直前のコメントでこの節を参照している。
 
 ### 4.2 なぜ「プラグイン単体の成果物」にできないのか
 

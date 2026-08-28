@@ -8,12 +8,12 @@ import { definePluginSettings } from "@api/Settings";
 import { OptionType } from "@utils/types";
 import { GuildMemberStore, RelationshipStore, UserStore } from "@webpack/common";
 
-import { lookupNickname, NicknameMap, withNickname, withoutNickname } from "./nickname";
+import { lookupNickname, NicknameMap, withNickname, withoutNickname } from "./utils";
 
 export const settings = definePluginSettings({
     nicknames: {
         type: OptionType.CUSTOM,
-        description: "ユーザーIDをキーとするローカルニックネームのマップ",
+        description: "Map of local nicknames, keyed by user ID",
         default: {} as NicknameMap
     }
 });
@@ -51,7 +51,7 @@ export function invalidateNicknameCache(): void {
 /**
  * 現在の nicknames マップの参照をそのまま返す。getNickname と同じ
  * getNicknameMap() を経由するため、返る参照は getNickname が内部で読んでいる
- * ものと常に一致する。nameOverride.ts の getMembers 配列キャッシュが「前回
+ * ものと常に一致する。index.tsx の getMembers 配列キャッシュが「前回
  * ビルド時点からニックネームの内容が変わっていないか」を判定するためだけに
  * 公開するアクセサで、setNickname/clearNickname は必ず新しいプレーン
  * オブジェクトを作ってから invalidateNicknameCache() → 代入する（このモジュール
