@@ -30,7 +30,7 @@ jobs:
     name: Type check, lint and build against Equicord
     runs-on: ubuntu-latest
     env:
-      EQUICORD_DIR: ${{ github.workspace }}/.equicord
+      EQUICORD_DIR: ${{ runner.temp }}/equicord
     steps:
       - uses: actions/checkout@v4
 
@@ -48,6 +48,13 @@ jobs:
       # Equicord を clone し、依存を入れ、このリポジトリを src/userplugins/ へリンクする
       - name: Set up Equicord
         run: ./tools/setup.sh
+
+      - name: Show generated tsconfig and link layout
+        run: |
+          echo "--- PWD ---"; pwd
+          echo "--- EQUICORD_DIR ---"; echo "$EQUICORD_DIR"
+          echo "--- tsconfig.json ---"; cat tsconfig.json
+          echo "--- src/userplugins ---"; ls -la "$EQUICORD_DIR/src/userplugins/"
 
       - name: Type check
         working-directory: ${{ env.EQUICORD_DIR }}
