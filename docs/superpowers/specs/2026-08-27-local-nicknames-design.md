@@ -366,6 +366,25 @@ type NicknameMap = Record<string /* userId */, NicknameEntry>;
 - 設定済み: `ニックネームを変更` と `ニックネームを解除` の2項目
 - 自分自身: 何も出さない
 
+### 7.1.1 UI 文字列のロケール
+
+既定は英語で、Discord の言語設定が日本語のときだけ日本語にする。判定は `LocaleStore.locale`
+（前例: Equicord 同梱の `src/plugins/tenorGifSearch/index.tsx`）。Equicord にはプラグイン向けの
+i18n 基盤が無いため、文字列表は自前で持つ。
+
+表の選択は `utils.ts` の `pickStrings(locale)` という純粋関数に切り出す。`utils.ts` は単体
+テストのために Vencord へ依存しない決まりがあり、`LocaleStore` を import するとテストが
+（`node --experimental-strip-types` での直接実行が）壊れるため、ストアを読むのは呼び出し側の
+責務にしている。日本語表は英語表のキーをすべて備えることを型で強制する。
+
+プラグイン一覧に出る `description` は getter にする。`definePlugin` はオブジェクトをそのまま
+返すだけで、`description` は `PluginCard` / `PluginModal` と検索フィルタからしか読まれない。
+いずれも設定画面の描画時であり、起動時に読む経路は存在しない。静的な文字列にすると値が
+モジュール評価時に確定してしまい、その時点では `LocaleStore` が未解決なので日本語にできない。
+
+設定項目 `nicknames` の `description` は多言語化しない。`OptionType.CUSTOM` の項目は
+`PluginModal.tsx` が明示的に描画対象外にしており、画面に出ないため。
+
 ### 7.2 モーダル
 
 `openModal` と `ModalRoot` / `ModalHeader` / `ModalContent` / `ModalFooter` /

@@ -148,6 +148,7 @@ export function initialNicknameInput(existing: string | null | undefined, baseNa
  * pickStrings(LocaleStore.locale) の形で使う。
  */
 const en = {
+    pluginDescription: "Give other users a nickname that only exists in your own client. It stays the same across every server.",
     menuSet: "Set local nickname",
     menuChange: "Change local nickname",
     menuClear: "Clear local nickname",
@@ -174,6 +175,7 @@ const en = {
 export type Strings = { readonly [K in keyof typeof en]: string };
 
 const ja: Strings = {
+    pluginDescription: "他のユーザーに、自分のクライアント内でのみ有効なニックネームを付けます。サーバーをまたいでも同じ表示になります。",
     menuSet: "ニックネームを付ける",
     menuChange: "ニックネームを変更",
     menuClear: "ニックネームを解除",

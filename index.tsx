@@ -257,7 +257,15 @@ const UserContext: NavContextMenuPatchCallback = (children, { user }: { user?: U
 
 export default definePlugin({
     name: "LocalNicknames",
-    description: "Give other users a nickname that only exists in your own client. It stays the same across every server.",
+
+    // description は設定画面が描画されるときにしか読まれない (PluginCard / PluginModal と
+    // 検索フィルタのみ。起動時に読む経路は存在しない) ため、getter にしてその時点の
+    // ロケールで解決する。静的な文字列にすると、この値はモジュール評価時に確定して
+    // しまい、その時点では LocaleStore がまだ解決されていないので日本語化できない。
+    // LocaleStore が未解決だった場合も pickStrings が英語へ落とす
+    get description() {
+        return pickStrings(LocaleStore?.locale).pluginDescription;
+    },
     // 上流へ出す際は EquicordDevs.penguinwokrs へ差し替える。あちらは Equicord 側の
     // src/utils/constants.ts に定義を追加して初めて存在するため、単体で成立させる
     // 必要があるこのリポジトリではインラインのまま持つ（設計書 4.1.1 に差分を記載）

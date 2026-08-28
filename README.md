@@ -12,6 +12,8 @@ nickname dialog — see [Known limitations](#known-limitations)).
 
 > The interface is English by default and switches to Japanese when Discord's language is
 > set to Japanese. Detection uses `LocaleStore.locale`; every other locale gets English.
+> This covers the plugin's own description in the plugin list too — it is a getter, resolved
+> when the settings screen renders rather than baked in at load time.
 
 ## How it works
 
@@ -256,8 +258,9 @@ through it.
 18. The profile of a user with a nickname shows the `Local nickname` section with
     `Original name` and `Nickname`. Check both the DM sidebar profile and the profile modal.
     Users without a nickname get no section
-19. Switch Discord's language to Japanese and confirm every string above switches too;
-    switch to a third language and confirm it falls back to English
+19. Switch Discord's language to Japanese and confirm every string above switches too,
+    including the plugin's description in Settings → Plugins; switch to a third language
+    and confirm it falls back to English
 
 Items 1–13, 17 and 18 have been verified. **Items 14–16 are deliberately skipped** — see
 the restore limitation above; in short, a failure is always recoverable with a reload or a
